@@ -19,14 +19,15 @@ void main(string[] args)
 {
 	debugWriteln("mitsubishi galant 67 eshkere startuet, testiruem");
 	if (args.length <= 1) {
-		debugWriteln("HELP: [data-path-absolute] [port]");
+		debugWriteln("HELP: [data-path-absolute[folder with data subfolder used]] [address] [port]");
 		return;
 	}
 	preloader();
+	string pathToData = args[1];
 
 	auto router = new URLRouter;
 
-	router.get("*", serveStaticFiles("/"~systemSettings.pathToData~"/assets/"));
+	router.get("*", serveStaticFiles("/"~pathToData~"/assets/"));
 
 	// outcoming
 	router.get("/userInfo", &userInfo);
