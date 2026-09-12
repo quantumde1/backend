@@ -392,3 +392,9 @@ http://[указанный адрес]:[port]/ - он там и будет, вз
 [Vibe-D - фреймворк для Dlang для создания веб-серверов](https://vibed.org/)
 
 [Himmel Engine для Himmel Package Format в качестве базы данных](https://underlevel.su/git/quantumde1/himmel_engine/src/3d-dev/source/system/hpf.d)
+
+## ER диаграмма
+
+Она не будет корректна т.к в движке нет entity и relations между ними в классическом смысле, но что есть
+
+![ER диаграмма](image.png)
