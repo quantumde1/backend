@@ -23,11 +23,11 @@ void main(string[] args)
 		return;
 	}
 	preloader();
-	string pathToData = args[1];
+	pathToData = args[1];
 
 	auto router = new URLRouter;
 
-	router.get("*", serveStaticFiles("/"~pathToData~"/assets/"));
+	router.get("*", serveStaticFiles(pathToData~"/assets/"));
 
 	// outcoming
 	router.get("/userInfo", &userInfo);

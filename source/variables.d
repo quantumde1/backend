@@ -36,7 +36,7 @@ SystemSettings systemSettings;
 
 
 /* strings */
-
+string pathToData;
 
 /* floats */
 

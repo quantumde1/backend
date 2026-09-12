@@ -13,7 +13,7 @@ void loadAllBetsData() {
     if (parsedChunks.length == 0) {
         parsedChunks.length = 3;
     }
-    parsedChunks[1] = parseArchive(systemSettings.pathToData~"data/db/bets.hpf");
+    parsedChunks[1] = parseArchive(pathToData~"data/db/bets.hpf");
     bets.length = 0;
     
     for (int i = 0; i < parsedChunks[1].length; i++) {

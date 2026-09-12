@@ -179,7 +179,6 @@ void stopBetAuction(HTTPServerRequest req, HTTPServerResponse res) {
 
 void setBetResult(HTTPServerRequest req, HTTPServerResponse res) {
     Json partJson = req.json;
-    bool betStatus = partJson["betStatus"].get!bool;
     uint betIndex  = partJson["betId"].get!uint;
 
     if (betIndex >= bets.length) {
@@ -193,11 +192,10 @@ void setBetResult(HTTPServerRequest req, HTTPServerResponse res) {
         res.writeBody("error_already_settled"); return;
     }
 
-    if (betStatus == true) {
-        users[bet.participantOne].balance += bet.price;
-        users[bet.participantTwo].balance -= bet.price;
-    }
-
+    debugWriteln(bet.participantOne);
+    debugWriteln(bet.participantTwo);
+    users[bet.participantOne].balance += bet.price;
+    users[bet.participantTwo].balance -= bet.price;
     bets[betIndex].status = true;
     res.statusCode = 200;
     res.writeBody("success");

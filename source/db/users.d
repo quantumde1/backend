@@ -21,7 +21,7 @@ void loadAllUsersData() {
     if (parsedChunks.length == 0) {
         parsedChunks.length = 3;
     }
-    parsedChunks[0] = parseArchive(systemSettings.pathToData~"data/db/users.hpf");
+    parsedChunks[0] = parseArchive(pathToData~"data/db/users.hpf");
     users.length = 0;
     
     for (int i = 0; i < parsedChunks[0].length; i++) {
