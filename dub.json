@@ -1,0 +1,13 @@
+{
+	"authors": [
+		"quantumde1"
+	],
+	"copyright": "Copyright © 2026, quantumde1",
+	"dependencies": {
+		"vibe-d": "~>0.10.3"
+	},
+	"description": "eshkere jokery",
+	"license": "MIT",
+	"name": "backend",
+	"versions": ["VibeDisableCommandLineParsing"]
+}
