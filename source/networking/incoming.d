@@ -7,10 +7,13 @@ import vibe.data.json;
 import system.hpf;
 import db.users;
 import db.bets;
+import db.images;
 import std.array;
 import std.datetime;
 import std.range;
 import std.algorithm;
+import std.base64;
+import std.conv;
 
 void registerUser(HTTPServerRequest req, HTTPServerResponse res) {
     debugWriteln("registering user in RAM");
@@ -55,12 +58,59 @@ void loginUser(HTTPServerRequest req, HTTPServerResponse res) {
     res.statusCode = 200;
 }
 
+void uploadImage(HTTPServerRequest req, HTTPServerResponse res) {
+    debugWriteln("uploading lot image into RAM");
+    Json uploadJson = req.json;
+
+    if ("data" !in uploadJson) {
+        res.writeBody("error_no_data");
+        return;
+    }
+    string base64Data = uploadJson["data"].get!string;
+
+    ubyte[] imageData;
+    try {
+        imageData = cast(ubyte[])Base64.decode(base64Data);
+    } catch (Exception e) {
+        debugWriteln("bad base64 image: ", e.msg);
+        res.writeBody("error_bad_base64");
+        return;
+    }
+
+    if (imageData.length == 0) {
+        res.writeBody("error_empty_image");
+        return;
+    }
+
+    uint newIndex = addImage(imageData);
+    res.statusCode = 200;
+    res.writeBody(newIndex.to!string);
+}
+
 void registerBet(HTTPServerRequest req, HTTPServerResponse res) {
     debugWriteln("creating bet in RAM");
     Json registerJson = req.json;
     string betName = registerJson["betname"].get!string;
     uint price = registerJson["price"].get!uint;
     uint participantOne = registerJson["participantOne"].get!uint;
+
+    string description = "";
+    if ("description" in registerJson) {
+        description = registerJson["description"].get!string;
+        if (description.length > 128) {
+            description = description[0 .. 128];
+        }
+    }
+
+    uint[3] imageIndexes = [NO_IMAGE, NO_IMAGE, NO_IMAGE];
+    if ("images" in registerJson) {
+        auto imagesJson = registerJson["images"];
+        for (int i = 0; i < 3; i++) {
+            if (i < imagesJson.length) {
+                imageIndexes[i] = imagesJson[i].get!uint;
+            }
+        }
+    }
 
     if (users.length <= participantOne) {
         debugWriteln("no such user");
@@ -78,7 +128,7 @@ void registerBet(HTTPServerRequest req, HTTPServerResponse res) {
     bool status = false;
 
     uint newBetIndex = cast(uint)bets.length;
-    bets ~= Bet(betName, price, participantOne, participantTwo, time, status);
+    bets ~= Bet(betName, price, participantOne, participantTwo, time, status, description, imageIndexes);
 
     users[participantOne].betsIndexes ~= newBetIndex;
     users[participantOne].betsDone = cast(uint)users[participantOne].betsIndexes.length;
@@ -216,16 +266,20 @@ void flushData(HTTPServerRequest req, HTTPServerResponse res) {
         betChunks ~= serializeBet(b);
     }
 
+    ubyte[][] imageChunks = images.dup;
+
     bool ok = true;
     string errorMsg;
 
     try {
         writeArchive("data/db/users.hpf", userChunks);
         writeArchive("data/db/bets.hpf", betChunks);
+        writeArchive("data/db/images.hpf", imageChunks);
 
-        if (parsedChunks.length < 2) parsedChunks.length = 2;
+        if (parsedChunks.length < 3) parsedChunks.length = 3;
         parsedChunks[0] = parseArchive("data/db/users.hpf");
         parsedChunks[1] = parseArchive("data/db/bets.hpf");
+        parsedChunks[2] = parseArchive("data/db/images.hpf");
     } catch (Exception e) {
         ok = false;
         errorMsg = e.msg;
@@ -237,9 +291,11 @@ void flushData(HTTPServerRequest req, HTTPServerResponse res) {
     if (ok == true) {
         users.length = 0;
         bets.length = 0;
+        images.length = 0;
         debugWriteln("Reloading databases to RAM");
         loadAllUsersData();
         loadAllBetsData();
+        loadAllImagesData();
     }
     res.writeBody("success");
 }

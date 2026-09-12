@@ -3,6 +3,7 @@ module networking.outcoming;
 import system.debugwriteln;
 import db.users;
 import db.bets;
+import db.images;
 import variables;
 import vibe.vibe;
 import std.conv;
@@ -46,11 +47,19 @@ Val betToVal(uint betId) {
     obj ~= tuple("participantTwoIndex", Val.uint_(b.participantTwo));
     obj ~= tuple("unixTimestamp", Val.uint_(b.unixTimestamp));
     obj ~= tuple("status", Val.bool_(b.status));
+    obj ~= tuple("description", Val.str(b.description));
 
     string p1 = (b.participantOne < users.length) ? users[b.participantOne].nickname : "";
     string p2 = (b.participantTwo < users.length) ? users[b.participantTwo].nickname : "";
     obj ~= tuple("participantOneName", Val.str(p1));
     obj ~= tuple("participantTwoName", Val.str(p2));
+
+    // индексы картинок лота (NO_IMAGE = 0xFFFFFF означает отсутствие картинки в слоте)
+    Val[] imagesArr;
+    foreach (idx; b.imageIndexes) {
+        imagesArr ~= Val.uint_(idx);
+    }
+    obj ~= tuple("images", Val.arr_(imagesArr));
 
     return Val.obj_(obj);
 }
@@ -99,4 +108,20 @@ void betInfo(HTTPServerRequest req, HTTPServerResponse res) {
     auto fmt = parseFormat(req);
     auto v = betToVal(betId);
     writeFormatted(res, v, fmt);
+}
+
+// отдаёт сырые байты картинки лота по её индексу в data/db/images.hpf
+void imageInfo(HTTPServerRequest req, HTTPServerResponse res) {
+    string idStr = req.query.get("id", "0");
+    uint imageId = to!uint(idStr);
+
+    ubyte[] data = getImage(imageId);
+    if (data.length == 0) {
+        res.statusCode = 404;
+        res.writeBody("not found");
+        return;
+    }
+
+    res.headers["Content-Type"] = detectImageMime(data);
+    res.writeBody(data);
 }

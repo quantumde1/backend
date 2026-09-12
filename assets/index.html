@@ -35,6 +35,35 @@
         .footer { padding: 20px 0; color: #999; font-size: 0.85rem; }
         .lot-card-img { height: 120px; background: linear-gradient(135deg, #26a69a22, #26a69a44); display: flex; align-items: center; justify-content: center; border-radius: 8px 8px 0 0; }
         .lot-card-img i { font-size: 3rem; color: #26a69a; }
+        .lot-card-photo { height: 120px; width: 100%; object-fit: cover; display: block; border-radius: 8px 8px 0 0; }
+        #lots-list.row { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 24px; margin: 0; }
+        #lots-list .col { width: 100%; padding: 0; float: none; }
+        #lots-list .card { height: 100%; display: flex; flex-direction: column; }
+        #lots-list .card-content { flex: 1 1 auto; }
+        #lots-list .card-action { flex-shrink: 0; }
+        #lot-modal {
+            width: 90% !important;
+            max-width: 1100px !important;
+            height: 90% !important;
+            max-height: 85vh !important;
+        }
+
+        #lot-modal .modal-content { max-height: 100vh; overflow-y: auto; }
+
+        @media (max-width: 992px) {
+            #lot-modal { width: 95% !important; max-width: none !important; }
+        }
+        .lot-carousel { height: 300px !important; margin-bottom: 10px; }
+        .lot-carousel .carousel-item { width: 300px !important; height: 300px !important; }
+        .lot-carousel .carousel-item img { width: 100%; height: 100%; object-fit: contain; background: #fafafa; border-radius: 6px; cursor: zoom-in; }
+        .lot-carousel-indicators { display: flex; justify-content: center; gap: 8px; margin: 5px 0 15px; }
+        .lot-carousel-indicators button { width: 10px; height: 10px; border-radius: 50%; border: none; background: #cfd8dc; cursor: pointer; padding: 0; }
+        .lot-carousel-indicators button.active { background: #26a69a; }
+
+        @media (max-width: 600px) {
+            .lot-carousel { height: 280px !important; }
+            .lot-carousel .carousel-item { width: 280px !important; height: 280px !important; }
+        }
     </style>
 </head>
 <body>
@@ -69,6 +98,7 @@
 <main>
 <div class="container">
 
+    <!-- Auth page -->
     <div id="page-auth" class="page active">
         <div class="auth-container">
             <div class="card">
@@ -84,7 +114,7 @@
                         <li class="tab col s6"><a href="#register-tab">Регистрация</a></li>
                     </ul>
 
-                    <!-- Вход -->
+                    <!-- Login -->
                     <div id="login-tab" class="col s12" style="padding-top:20px;">
                         <div class="input-field">
                             <input id="login-nickname" type="text">
@@ -99,7 +129,7 @@
                         </button>
                     </div>
 
-                    <!-- Регистрация -->
+                    <!-- Register -->
                     <div id="register-tab" class="col s12" style="padding-top:20px;">
                         <div class="input-field">
                             <input id="reg-nickname" type="text">
@@ -118,6 +148,7 @@
         </div>
     </div>
 
+    <!-- Lots page -->
     <div id="page-lots" class="page">
         <h4 class="section-title">Активные лоты</h4>
         <div class="row">
@@ -151,6 +182,7 @@
         </div>
     </div>
 
+    <!-- Create lot page -->
     <div id="page-create" class="page">
         <h4 class="section-title">Создать лот</h4>
         <div class="row">
@@ -167,9 +199,26 @@
                             <label for="create-price" class="active">Начальная цена, ₽</label>
                         </div>
                         <div class="input-field">
+                            <textarea id="create-description" class="materialize-textarea" maxlength="128"></textarea>
+                            <label for="create-description">Описание лота (до 128 символов)</label>
+                        </div>
+                        <div class="input-field">
                             <input id="create-seller" type="number" value="0" disabled>
                             <label for="create-seller" class="active">ID продавца (вы)</label>
                         </div>
+                        <p class="grey-text" style="font-size:0.85rem;">Фото товара (до 3 штук)</p>
+                        <div class="row" style="margin-bottom:0;">
+                            <div class="file-field input-field col s12">
+                                <div class="btn">
+                                    <span>Выбрать фото</span>
+                                    <input type="file" id="create-images" accept="image/*" multiple>
+                                </div>
+                                <div class="file-path-wrapper">
+                                    <input class="file-path validate" type="text" placeholder="До 3 изображений">
+                                </div>
+                            </div>
+                        </div>
+                        <div id="create-images-preview" style="display:flex; gap:8px; margin-bottom:10px;"></div>
                         <p class="grey-text" style="font-size:0.85rem;">
                             <i class="material-icons tiny">info</i>
                             Лот будет выставлен на торги. Покупатели смогут делать ставки выше начальной цены.
@@ -185,6 +234,7 @@
         </div>
     </div>
 
+    <!-- Profile page -->
     <div id="page-profile" class="page">
         <h4 class="section-title">Мой профиль</h4>
         <div class="row">
@@ -240,6 +290,7 @@
         </div>
     </div>
 
+    <!-- Admin page -->
     <div id="page-admin" class="page">
         <h4 class="section-title">Админка</h4>
         <div class="row">
@@ -261,29 +312,16 @@
                         </div>
                     </div>
                     <div class="card-action">
-                        <button class="btn-small waves-effect waves-light" onclick="adminTakePart()">
-                            Ставка
-                        </button>
-                        <button class="btn-small waves-effect waves-light" onclick="adminUntake()">
-                            Отозвать
-                        </button>
-                        <button class="btn-small waves-effect waves-light orange" onclick="adminStop()">
-                            Закрыть торги
-                        </button>
-                        <button class="btn-small waves-effect waves-light green" onclick="adminSettle(true)">
-                            Продано
-                        </button>
-                        <button class="btn-small waves-effect waves-light grey" onclick="adminSettle(false)">
-                            Не продано
-                        </button>
-                        <button class="btn-small waves-effect waves-light red" onclick="adminRemove()">
-                            Удалить
-                        </button>
+                        <button class="btn-small waves-effect waves-light" onclick="adminTakePart()">Ставка</button>
+                        <button class="btn-small waves-effect waves-light" onclick="adminUntake()">Отозвать</button>
+                        <button class="btn-small waves-effect waves-light orange" onclick="adminStop()">Закрыть торги</button>
+                        <button class="btn-small waves-effect waves-light green" onclick="adminSettle(true)">Продано</button>
+                        <button class="btn-small waves-effect waves-light grey" onclick="adminSettle(false)">Не продано</button>
+                        <button class="btn-small waves-effect waves-light red" onclick="adminRemove()">Удалить</button>
                     </div>
                 </div>
             </div>
 
-            <!-- Баланс -->
             <div class="col s12 m6">
                 <div class="card">
                     <div class="card-content">
@@ -298,15 +336,13 @@
                         </div>
                     </div>
                     <div class="card-action">
-                        <button class="btn-small waves-effect waves-light" onclick="adminUpdateBalance()">
-                            Обновить
-                        </button>
+                        <button class="btn-small waves-effect waves-light" onclick="adminUpdateBalance()">Обновить</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Система -->
+        <!-- System -->
         <div class="row">
             <div class="col s12 m6">
                 <div class="card">
@@ -331,9 +367,7 @@
                         </div>
                     </div>
                     <div class="card-action">
-                        <button class="btn-small waves-effect waves-light" onclick="adminViewUser()">
-                            Показать
-                        </button>
+                        <button class="btn-small waves-effect waves-light" onclick="adminViewUser()">Показать</button>
                     </div>
                 </div>
             </div>
@@ -349,7 +383,7 @@
     аукцион
 </footer>
 
-<!-- Модальное окно лота -->
+<!-- Lot detail modal -->
 <div id="lot-modal" class="modal">
     <div class="modal-content">
         <h5 id="modal-title">Лот</h5>
@@ -360,6 +394,7 @@
     </div>
 </div>
 
+<!-- Bid modal -->
 <div id="bid-modal" class="modal">
     <div class="modal-content">
         <h5>Сделать ставку</h5>
@@ -380,11 +415,16 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
 <script>
-
+/* =========================================================================
+   Constants & global state
+   ========================================================================= */
 const API = '';
-let currentUser = null;  // {id, nickname}
+let currentUser = null;        // {id, nickname}
 let currentBidLotId = null;
 
+/* =========================================================================
+   Low-level helpers: HTTP, toast, escaping
+   ========================================================================= */
 function toast(msg, color = 'teal') {
     M.toast({html: msg, classes: color, displayLength: 3500});
 }
@@ -413,6 +453,62 @@ async function get(path) {
     }
 }
 
+/** Escape a string for safe insertion into HTML. */
+function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    })[c]);
+}
+
+/** Escape a string for safe insertion into a single-quoted JS literal. */
+function escapeJs(s) {
+    return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+/**
+ * Fetch a lot and parse its JSON.
+ * Returns the parsed object or null if missing/invalid.
+ */
+async function fetchLot(id) {
+    const raw = await get(`/betInfo?id=${id}&format=json`);
+    if (!raw) return null;
+    try {
+        const lot = JSON.parse(raw);
+        return lot.error ? null : lot;
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
+ * Fetch a user and parse its JSON.
+ * Returns the parsed object or null if missing/invalid.
+ */
+async function fetchUser(id) {
+    const raw = await get(`/userInfo?id=${id}&format=json`);
+    if (!raw) return null;
+    try {
+        const user = JSON.parse(raw);
+        return user.error ? null : user;
+    } catch (e) {
+        return null;
+    }
+}
+
+/** Read a File as base64 (without the data URL prefix). */
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+/* =========================================================================
+   Navigation & session
+   ========================================================================= */
 function go(page) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     const el = document.getElementById('page-' + page);
@@ -428,24 +524,25 @@ function go(page) {
 
 function updateNav() {
     const loggedIn = currentUser !== null;
-    document.getElementById('nav-lots').classList.toggle('hide', !loggedIn);
-    document.getElementById('nav-create').classList.toggle('hide', !loggedIn);
-    document.getElementById('nav-profile').classList.toggle('hide', !loggedIn);
-    document.getElementById('nav-admin').classList.toggle('hide', !loggedIn);
-    document.getElementById('nav-user').classList.toggle('hide', !loggedIn);
+    ['nav-lots', 'nav-create', 'nav-profile', 'nav-admin', 'nav-user']
+        .forEach(id => document.getElementById(id).classList.toggle('hide', !loggedIn));
     if (loggedIn) {
-        document.getElementById('nav-nickname').textContent = currentUser.nickname + ' #' + currentUser.id;
+        document.getElementById('nav-nickname').textContent =
+            currentUser.nickname + ' #' + currentUser.id;
     }
 }
 
+/* =========================================================================
+   Auth
+   ========================================================================= */
 async function registerUser() {
     const nickname = document.getElementById('reg-nickname').value.trim();
     const passwordHash = document.getElementById('reg-password').value.trim();
     if (!nickname || !passwordHash) return toast('Заполните все поля', 'orange');
+
     const r = await post('/userRegister', {nickname, passwordHash});
     if (r) {
         toast('Регистрация: ' + r, 'green');
-        // автоматический вход
         document.getElementById('login-nickname').value = nickname;
         document.getElementById('login-password').value = passwordHash;
         await loginUser();
@@ -456,6 +553,7 @@ async function loginUser() {
     const nickname = document.getElementById('login-nickname').value.trim();
     const passwordHash = document.getElementById('login-password').value.trim();
     if (!nickname || !passwordHash) return toast('Заполните все поля', 'orange');
+
     const r = await post('/userLogin', {nickname, passwordHash});
     if (r === null) return;
     if (r.startsWith('error')) {
@@ -463,7 +561,6 @@ async function loginUser() {
         return;
     }
     currentUser = {id: parseInt(r), nickname};
-    console.log(currentUser)
     toast('Добро пожаловать, ' + nickname, 'green');
     updateNav();
     go('lots');
@@ -476,124 +573,182 @@ function logout() {
     toast('Вы вышли', 'grey');
 }
 
+/* =========================================================================
+   Lots listing & card rendering
+   ========================================================================= */
+const LOT_STATUS = {
+    active:    {cls: 'status-active',    text: 'Торги идут'},
+    closed:    {cls: 'status-closed',    text: 'Торги закрыты'},
+    settled:   {cls: 'status-settled',   text: 'Продано'},
+    cancelled: {cls: 'status-cancelled', text: 'Снят'}
+};
+
+/** Return the status descriptor for a lot object. */
+function lotStatus(lot) {
+    return lot.status ? LOT_STATUS.closed : LOT_STATUS.active;
+}
+
+/** Return the first usable image index or undefined. */
+function firstImageIndex(lot) {
+    return (lot.images || []).find(idx => idx !== undefined && idx < 0xFFFFFF);
+}
+
+/** Return all usable image indices. */
+function allImageIndices(lot) {
+    return (lot.images || []).filter(idx => idx !== undefined && idx < 0xFFFFFF);
+}
+
+/** True if the current user owns the given lot. */
+function isLotOwner(lot) {
+    return currentUser && parseInt(lot.participantOneIndex) === parseInt(currentUser.id);
+}
+
+function renderLotCard(lot) {
+    const st = lotStatus(lot);
+    const seller = lot.participantOneName || '—';
+    const leader = lot.participantTwoName || '—';
+    const owner = isLotOwner(lot);
+    const canSell = owner && lot.status === false;
+
+    const imgIdx = firstImageIndex(lot);
+    const imgHtml = imgIdx !== undefined
+        ? `<img src="/imageInfo?id=${imgIdx}" class="lot-card-photo">`
+        : `<div class="lot-card-img"><i class="material-icons">inventory_2</i></div>`;
+
+    return `
+        <div class="col s12 m6 l4">
+            <div class="card">
+                ${imgHtml}
+                <div class="card-content">
+                    <span class="card-title truncate" title="${escapeHtml(lot.name)}">${escapeHtml(lot.name)}</span>
+                    <p class="lot-price">${lot.price} ₽</p>
+                    ${lot.description ? `<p class="grey-text truncate" title="${escapeHtml(lot.description)}">${escapeHtml(lot.description)}</p>` : ''}
+                    <p><span class="lot-status ${st.cls}">${st.text}</span></p>
+                    <p><i class="material-icons tiny">person</i> Продавец: ${escapeHtml(seller)}${owner ? ' <span class="chip-role role-seller">вы</span>' : ''}</p>
+                    <p><i class="material-icons tiny">gavel</i> Лидер: ${escapeHtml(leader)}</p>
+                    <p class="grey-text" style="font-size:0.8rem;">ID лота: ${lot.id}</p>
+                </div>
+                <div class="card-action">
+                    <a href="#" onclick="showLot(${lot.id}); return false;">Подробнее</a>
+                    ${!lot.status ? `<a href="#" onclick="openBid(${lot.id}, ${lot.price}, '${escapeJs(lot.name)}'); return false;">Ставка</a>` : ''}
+                    ${canSell ? `<a href="#" class="green-text" onclick="ownerSell(${lot.id}); return false;">Продать</a>` : ''}
+                </div>
+            </div>
+        </div>`;
+}
+
 async function loadLots() {
     const list = document.getElementById('lots-list');
     list.innerHTML = '<div class="empty-state"><i class="material-icons large">hourglass_empty</i><p>Загрузка...</p></div>';
 
     const from = parseInt(document.getElementById('filter-from').value) || 0;
     const to = parseInt(document.getElementById('filter-to').value) || 20;
+    const limit = Math.min(to, from + 50);
 
     let html = '';
     let found = 0;
-    for (let i = from; i <= to && i < from + 50; i++) {
-        const r = await get(`/betInfo?id=${i}&format=json`);
-        if (!r) continue;
-        try {
-            const b = JSON.parse(r);
-            if (b.error) continue;
-            found++;
-            html += renderLotCard(b);
-        } catch (e) { /* ignore */ }
+    for (let i = from; i <= limit; i++) {
+        const lot = await fetchLot(i);
+        if (!lot) continue;
+        found++;
+        html += renderLotCard(lot);
     }
-    if (found === 0) {
-        list.innerHTML = '<div class="empty-state"><i class="material-icons large">inbox</i><p>Лотов не найдено</p></div>';
-    } else {
-        list.innerHTML = html;
-    }
+
+    list.innerHTML = found === 0
+        ? '<div class="empty-state"><i class="material-icons large">inbox</i><p>Лотов не найдено</p></div>'
+        : html;
 }
 
-async function ownerSell(betId) {
-    if (!currentUser) return toast('Войдите', 'orange');
-    if (!confirm('Подтвердить продажу лота #' + betId + '?')) return;
-    const r = await post('/betSetResult', {betStatus: false, betId});
-    if (r === 'success') {
-        toast('Лот продан!', 'green');
-        loadLots();
-    } else {
-        toast('Ошибка: ' + r, 'red');
-    }
-}
-
-function renderLotCard(b) {
-    const statusMap = {
-        active:  {cls: 'status-active',  text: 'Торги идут'},
-        closed:  {cls: 'status-closed',  text: 'Торги закрыты'},
-        settled: {cls: 'status-settled', text: 'Продано'},
-        cancelled: {cls: 'status-cancelled', text: 'Снят'}
-    };
-    const st = b.status ? statusMap.closed : statusMap.active;
-    const leader = b.participantTwoName || '—';
-    const seller = b.participantOneName || '—';
-
-    const isOwner = currentUser && parseInt(b.participantOneIndex) === parseInt(currentUser.id);
-    const canSell = isOwner && b.status === false;
-
-    return `
-        <div class="col s12 m6 l4">
-            <div class="card">
-                <div class="lot-card-img"><i class="material-icons">inventory_2</i></div>
-                <div class="card-content">
-                    <span class="card-title truncate" title="${escapeHtml(b.name)}">${escapeHtml(b.name)}</span>
-                    <p class="lot-price">${b.price} ₽</p>
-                    <p><span class="lot-status ${st.cls}">${st.text}</span></p>
-                    <p><i class="material-icons tiny">person</i> Продавец: ${escapeHtml(seller)}${isOwner ? ' <span class="chip-role role-seller">вы</span>' : ''}</p>
-                    <p><i class="material-icons tiny">gavel</i> Лидер: ${escapeHtml(leader)}</p>
-                    <p class="grey-text" style="font-size:0.8rem;">ID лота: ${b.id}</p>
-                </div>
-                <div class="card-action">
-                    <a href="#" onclick="showLot(${b.id}); return false;">Подробнее</a>
-                    ${!b.status ? `<a href="#" onclick="openBid(${b.id}, ${b.price}, '${escapeJs(b.name)}'); return false;">Ставка</a>` : ''}
-                    ${canSell ? `<a href="#" class="green-text" onclick="ownerSell(${b.id}); return false;">Продать</a>` : ''}
-                </div>
-            </div>
-        </div>`;
-}
-
-async function ownerStop(betId) {
-    if (!confirm('Закрыть торги по лоту #' + betId + '?')) return;
-    const r = await post('/betStopAuction', {betId});
-    if (r === 'success') {
-        toast('Торги закрыты', 'green');
-        loadLots();
-    } else {
-        toast('Ошибка: ' + r, 'red');
-    }
-}
-
+/* =========================================================================
+   Lot detail modal & carousel
+   ========================================================================= */
 async function showLot(id) {
-    const r = await get(`/betInfo?id=${id}&format=json`);
-    if (!r) return;
-    try {
-        const b = JSON.parse(r);
-        if (b.error) return toast('Лот не найден', 'red');
+    const lot = await fetchLot(id);
+    if (!lot) return toast('Лот не найден', 'red');
 
-        const isOwner = currentUser && parseInt(b.participantOneIndex) === parseInt(currentUser.id);
-        const canSell = isOwner && b.status === false;
+    const owner = isLotOwner(lot);
+    const canSell = owner && lot.status === false;
+    const images = allImageIndices(lot);
+    const carouselId = 'lot-carousel-' + Date.now();
 
-        document.getElementById('modal-title').textContent = b.name;
-        document.getElementById('modal-body').innerHTML = `
-            <ul class="collection">
-                <li class="collection-item"><b>ID:</b> ${b.id}</li>
-                <li class="collection-item"><b>Цена:</b> ${b.price} ₽</li>
-                <li class="collection-item"><b>Продавец:</b> ${escapeHtml(b.participantOneName || '—')} (#${b.participantOneIndex})</li>
-                <li class="collection-item"><b>Лидер:</b> ${escapeHtml(b.participantTwoName || '—')} (#${b.participantTwoIndex})</li>
-                <li class="collection-item"><b>Создан:</b> ${new Date(b.unixTimestamp * 1000).toLocaleString()}</li>
-                <li class="collection-item"><b>Статус:</b> ${b.status ? 'Торги закрыты' : 'Торги идут'}</li>
-            </ul>
-            ${canSell ? `<div class="center-align" style="margin-top:15px;">
-                <button class="btn green" onclick="ownerSell(${b.id}); M.Modal.getInstance(document.getElementById('lot-modal')).close();">
-                    Продать за ${b.price} ₽
-                </button>
-            </div>` : ''}
-            ${!b.status && !isOwner ? `<a href="#" onclick="openBid(...); return false;">Ставка</a>` : ''}
-            ${isOwner && !b.status ? `<a href="#" class="orange-text" onclick="ownerStop(${b.id}); return false;">Закрыть торги</a>` : ''}
-        `;
-        M.Modal.getInstance(document.getElementById('lot-modal')).open();
-    } catch (e) {
-        toast('Ошибка разбора', 'red');
+    const galleryHtml = images.length
+        ? `<div class="carousel lot-carousel" id="${carouselId}">
+                ${images.map(idx => `
+                    <a class="carousel-item" href="#!" onclick="return false;">
+                        <img src="/imageInfo?id=${idx}" alt="Фото лота">
+                    </a>`).join('')}
+            </div>
+            <div class="lot-carousel-indicators" id="${carouselId}-dots">
+                ${images.map((_, i) => `<button type="button" data-idx="${i}" class="${i === 0 ? 'active' : ''}"></button>`).join('')}
+            </div>`
+        : '';
+
+    document.getElementById('modal-title').textContent = lot.name;
+    document.getElementById('modal-body').innerHTML = `
+        ${galleryHtml}
+        ${lot.description ? `<p>${escapeHtml(lot.description)}</p>` : ''}
+        <ul class="collection">
+            <li class="collection-item"><b>ID:</b> ${lot.id}</li>
+            <li class="collection-item"><b>Цена:</b> ${lot.price} ₽</li>
+            <li class="collection-item"><b>Продавец:</b> ${escapeHtml(lot.participantOneName || '—')} (#${lot.participantOneIndex})</li>
+            <li class="collection-item"><b>Лидер:</b> ${escapeHtml(lot.participantTwoName || '—')} (#${lot.participantTwoIndex})</li>
+            <li class="collection-item"><b>Создан:</b> ${new Date(lot.unixTimestamp * 1000).toLocaleString()}</li>
+            <li class="collection-item"><b>Статус:</b> ${lot.status ? 'Торги закрыты' : 'Торги идут'}</li>
+        </ul>
+        ${canSell ? `<div class="center-align" style="margin-top:15px;">
+            <button class="btn green" onclick="ownerSell(${lot.id}); M.Modal.getInstance(document.getElementById('lot-modal')).close();">
+                Продать за ${lot.price} ₽
+            </button>
+        </div>` : ''}
+    `;
+
+    M.Modal.getInstance(document.getElementById('lot-modal')).open();
+
+    if (images.length) {
+        setTimeout(() => initLotCarousel(carouselId), 100);
     }
 }
 
+/** Initialize the Materialize carousel and wire up its indicator dots. */
+function initLotCarousel(carouselId) {
+    const el = document.getElementById(carouselId);
+    if (!el) return;
+
+    const instance = M.Carousel.init(el, {
+        fullWidth: false,
+        indicators: false,
+        numVisible: 1,
+        padding: 20
+    })[0];
+
+    const dots = document.getElementById(carouselId + '-dots');
+    if (dots) {
+        dots.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = parseInt(btn.dataset.idx);
+                instance.set(target);
+                dots.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+    }
+
+    // Sync dots when the user drags the carousel.
+    el.addEventListener('click', () => {
+        setTimeout(() => {
+            const items = Array.from(el.querySelectorAll('.carousel-item'));
+            const activeIdx = items.findIndex(it => it.classList.contains('active'));
+            if (dots && activeIdx >= 0) {
+                dots.querySelectorAll('button').forEach((b, i) =>
+                    b.classList.toggle('active', i === activeIdx));
+            }
+        }, 250);
+    });
+}
+
+/* =========================================================================
+   Bidding
+   ========================================================================= */
 function openBid(lotId, currentPrice, lotName) {
     if (!currentUser) return toast('Войдите', 'orange');
     currentBidLotId = lotId;
@@ -605,11 +760,13 @@ function openBid(lotId, currentPrice, lotName) {
 async function submitBid() {
     const amount = parseInt(document.getElementById('bid-amount').value);
     if (!amount || amount <= 0) return toast('Введите сумму', 'orange');
+
     const r = await post('/betTakePart', {
         userId: currentUser.id,
         betId: currentBidLotId,
         betPrice: amount
     });
+
     if (r === 'success') {
         toast('Ставка принята!', 'green');
         M.Modal.getInstance(document.getElementById('bid-modal')).close();
@@ -619,14 +776,88 @@ async function submitBid() {
     }
 }
 
-// ===================== СОЗДАНИЕ ЛОТА =====================
+async function ownerSell(betId) {
+    if (!currentUser) return toast('Войдите', 'orange');
+    if (!confirm('Подтвердить продажу лота #' + betId + '?')) return;
+
+    const r = await post('/betSetResult', {betStatus: false, betId});
+    if (r === 'success') {
+        toast('Лот продан!', 'green');
+        loadLots();
+    } else {
+        toast('Ошибка: ' + r, 'red');
+    }
+}
+
+async function ownerStop(betId) {
+    if (!confirm('Закрыть торги по лоту #' + betId + '?')) return;
+
+    const r = await post('/betStopAuction', {betId});
+    if (r === 'success') {
+        toast('Торги закрыты', 'green');
+        loadLots();
+    } else {
+        toast('Ошибка: ' + r, 'red');
+    }
+}
+
+/* =========================================================================
+   Create lot
+   ========================================================================= */
 let creatingLot = false;
+let selectedLotImages = [];
+
+/** Wire up the file input for lot image previews. */
+(function initImageInput() {
+    const input = document.getElementById('create-images');
+    if (!input) return;
+
+    input.addEventListener('change', () => {
+        selectedLotImages = Array.from(input.files).slice(0, 3);
+
+        const preview = document.getElementById('create-images-preview');
+        preview.innerHTML = '';
+        selectedLotImages.forEach(file => {
+            const url = URL.createObjectURL(file);
+            const img = document.createElement('img');
+            img.src = url;
+            img.style.width = '80px';
+            img.style.height = '80px';
+            img.style.objectFit = 'cover';
+            img.style.borderRadius = '4px';
+            preview.appendChild(img);
+        });
+
+        if (input.files.length > 3) {
+            toast('Можно приложить не более 3 фото, лишние проигнорированы', 'orange');
+        }
+    });
+})();
+
+/** Upload all selected images and return their indices. */
+async function uploadLotImages() {
+    const indexes = [];
+    for (const file of selectedLotImages) {
+        const base64 = await fileToBase64(file);
+        const r = await post('/imageUpload', {data: base64});
+        const idx = parseInt(r);
+        if (r === null || isNaN(idx)) {
+            toast('Не удалось загрузить фото: ' + r, 'red');
+            continue;
+        }
+        indexes.push(idx);
+    }
+    return indexes;
+}
 
 async function createLot() {
     if (creatingLot) return;
     if (!currentUser) return toast('Войдите', 'orange');
+
     const betname = document.getElementById('create-name').value.trim();
     const price = parseInt(document.getElementById('create-price').value);
+    const description = document.getElementById('create-description').value.trim().slice(0, 128);
+
     if (!betname) return toast('Введите название', 'orange');
     if (!price || price <= 0) return toast('Введите цену', 'orange');
 
@@ -635,10 +866,19 @@ async function createLot() {
     if (btn) btn.disabled = true;
 
     try {
-        const r = await post('/betRegister', {betname, price, participantOne: currentUser.id});
+        const images = await uploadLotImages();
+        const r = await post('/betRegister', {
+            betname, price, description, images,
+            participantOne: currentUser.id
+        });
+
         if (r === 'success') {
             toast('Лот выставлен!', 'green');
             document.getElementById('create-name').value = '';
+            document.getElementById('create-description').value = '';
+            document.getElementById('create-images').value = '';
+            document.getElementById('create-images-preview').innerHTML = '';
+            selectedLotImages = [];
             go('lots');
         } else {
             toast('Ошибка: ' + r, 'red');
@@ -649,46 +889,44 @@ async function createLot() {
     }
 }
 
-// ===================== ПРОФИЛЬ =====================
+/* =========================================================================
+   Profile
+   ========================================================================= */
 async function loadProfile() {
     if (!currentUser) return;
-    const r = await get(`/userInfo?id=${currentUser.id}&format=json`);
-    if (!r) return;
-    try {
-        const u = JSON.parse(r);
-        if (u.error) return toast('Профиль не найден', 'red');
-        document.getElementById('profile-data').innerHTML = `
-            <ul class="collection">
-                <li class="collection-item"><b>ID:</b> ${u.id}</li>
-                <li class="collection-item"><b>Ник:</b> ${escapeHtml(u.name)}</li>
-                <li class="collection-item"><b>Баланс:</b> ${u.balance} ₽</li>
-                <li class="collection-item"><b>Сделок:</b> ${u.betsCount}</li>
-            </ul>`;
-        document.getElementById('profile-balance').value = u.balance;
-        console.log(u)
-        await loadMyLots(u);
-    } catch (e) {
-        toast('Ошибка разбора', 'red');
-    }
+
+    const user = await fetchUser(currentUser.id);
+    if (!user) return toast('Профиль не найден', 'red');
+
+    document.getElementById('profile-data').innerHTML = `
+        <ul class="collection">
+            <li class="collection-item"><b>ID:</b> ${user.id}</li>
+            <li class="collection-item"><b>Ник:</b> ${escapeHtml(user.name)}</li>
+            <li class="collection-item"><b>Баланс:</b> ${user.balance} ₽</li>
+            <li class="collection-item"><b>Сделок:</b> ${user.betsCount}</li>
+        </ul>`;
+    document.getElementById('profile-balance').value = user.balance;
+
+    await loadMyLots(user);
 }
 
-async function loadMyLots(u) {
+/** Categorize the user's lots into active / sold / bought and render them. */
+async function loadMyLots(user) {
     const active = [], sold = [], bought = [];
-    for (const idx of (u.bets || [])) {
-        const r = await get(`/betInfo?id=${idx}&format=json`);
-        if (!r) continue;
-        try {
-            const b = JSON.parse(r);
-            if (b.error) continue;
-            if (b.participantOneIndex === currentUser.id) {
-                if (b.status) sold.push(b); else active.push(b);
-            } else if (b.participantTwoIndex === currentUser.id) {
-                if (b.status) bought.push(b); else active.push(b);
-            } else {
-                active.push(b);
-            }
-        } catch (e) { /* ignore */ }
+
+    for (const idx of (user.bets || [])) {
+        const lot = await fetchLot(idx);
+        if (!lot) continue;
+
+        if (lot.participantOneIndex === currentUser.id) {
+            (lot.status ? sold : active).push(lot);
+        } else if (lot.participantTwoIndex === currentUser.id) {
+            (lot.status ? bought : active).push(lot);
+        } else {
+            active.push(lot);
+        }
     }
+
     document.getElementById('my-active').innerHTML = renderMiniList(active, 'Нет активных лотов');
     document.getElementById('my-sold').innerHTML = renderMiniList(sold, 'Нет проданных лотов');
     document.getElementById('my-bought').innerHTML = renderMiniList(bought, 'Нет купленных лотов');
@@ -696,20 +934,23 @@ async function loadMyLots(u) {
 
 function renderMiniList(arr, emptyMsg) {
     if (arr.length === 0) return `<p class="grey-text center-align">${emptyMsg}</p>`;
-    return `<ul class="collection">` + arr.map(b => `
+
+    return `<ul class="collection">` + arr.map(lot => `
         <li class="collection-item">
-            <span class="title">${escapeHtml(b.name)}</span>
-            <span class="right">${b.price} ₽</span>
+            <span class="title">${escapeHtml(lot.name)}</span>
+            <span class="right">${lot.price} ₽</span>
             <p class="grey-text" style="font-size:0.8rem;">
-                ID: ${b.id} · ${b.status ? 'закрыт' : 'активен'}
+                ID: ${lot.id} · ${lot.status ? 'закрыт' : 'активен'}
             </p>
         </li>`).join('') + `</ul>`;
 }
 
 async function updateMyBalance() {
     if (!currentUser) return;
+
     const balance = parseInt(document.getElementById('profile-balance').value);
     const r = await post('/userUpdateBalance', {userId: currentUser.id, balance});
+
     if (r === 'success') {
         toast('Баланс обновлён', 'green');
         loadProfile();
@@ -718,6 +959,9 @@ async function updateMyBalance() {
     }
 }
 
+/* =========================================================================
+   Admin actions
+   ========================================================================= */
 async function adminTakePart() {
     const userId = parseInt(document.getElementById('admin-user-id').value);
     const betId = parseInt(document.getElementById('admin-bet-id').value);
@@ -740,7 +984,7 @@ async function adminStop() {
 }
 
 async function adminSettle(status) {
-    status = !status
+    status = !status;
     const betId = parseInt(document.getElementById('admin-bet-id').value);
     const r = await post('/betSetResult', {betStatus: status, betId});
     toast('Расчёт: ' + r, r === 'success' ? 'green' : 'red');
@@ -767,39 +1011,27 @@ async function adminFlush() {
 
 async function adminViewUser() {
     const id = parseInt(document.getElementById('admin-view-user').value);
-    const r = await get(`/userInfo?id=${id}&format=json`);
-    if (!r) return;
-    try {
-        const u = JSON.parse(r);
-        if (u.error) return toast('Не найден', 'red');
-        document.getElementById('admin-output').innerHTML = `
-            <div class="col s12">
-                <div class="card">
-                    <div class="card-content">
-                        <span class="card-title">Пользователь #${u.id}</span>
-                        <ul class="collection">
-                            <li class="collection-item"><b>Ник:</b> ${escapeHtml(u.name)}</li>
-                            <li class="collection-item"><b>Баланс:</b> ${u.balance} ₽</li>
-                            <li class="collection-item"><b>Сделок:</b> ${u.betsCount}</li>
-                        </ul>
-                    </div>
+    const user = await fetchUser(id);
+    if (!user) return toast('Не найден', 'red');
+
+    document.getElementById('admin-output').innerHTML = `
+        <div class="col s12">
+            <div class="card">
+                <div class="card-content">
+                    <span class="card-title">Пользователь #${user.id}</span>
+                    <ul class="collection">
+                        <li class="collection-item"><b>Ник:</b> ${escapeHtml(user.name)}</li>
+                        <li class="collection-item"><b>Баланс:</b> ${user.balance} ₽</li>
+                        <li class="collection-item"><b>Сделок:</b> ${user.betsCount}</li>
+                    </ul>
                 </div>
-            </div>`;
-    } catch (e) {
-        toast('Ошибка разбора', 'red');
-    }
+            </div>
+        </div>`;
 }
 
-function escapeHtml(s) {
-    if (s == null) return '';
-    return String(s).replace(/[&<>"']/g, c => ({
-        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-    })[c]);
-}
-function escapeJs(s) {
-    return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-}
-
+/* =========================================================================
+   Bootstrap
+   ========================================================================= */
 document.addEventListener('DOMContentLoaded', function() {
     M.Modal.init(document.querySelectorAll('.modal'));
     M.Sidenav.init(document.querySelectorAll('.sidenav'));

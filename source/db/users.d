@@ -15,7 +15,6 @@ every bet is stored as index which points into bets.hpf
 */
 
 // use only for testing
-// use only for testing
 void loadAllUsersData() {
     debugWriteln("Loading users into RAM");
     if (parsedChunks.length == 0) {

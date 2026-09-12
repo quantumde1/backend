@@ -4,9 +4,11 @@ import system.debugwriteln;
 import system.hpf;
 import variables;
 import system.uintreader;
+import db.images;
 
 /*
-every bet uses 32 bytes for its name, its cost in uint24(3 bytes), and participants(indexes of them, uint32), also UNIX timestamp in uint32, and 1 byte for state
+every bet uses 32 bytes for its name, its cost in uint24(3 bytes), and participants(indexes of them, uint32),
+also UNIX timestamp in uint32, and 1 byte for state.
 */
 void loadAllBetsData() {
     debugWriteln("Loading bets into RAM");
@@ -34,7 +36,27 @@ void loadAllBetsData() {
         uint secondUser = readUInt32(data, 39);
         uint unixTimestamp = readUInt32(data, 43);
         bool state = cast(bool)data[47];
-        bets ~= Bet(betname, price, firstUser, secondUser, unixTimestamp, state);
+
+        string description = "";
+        uint[3] imageIndexes = [NO_IMAGE, NO_IMAGE, NO_IMAGE];
+
+        if (data.length >= 176) {
+            char[128] descBuf;
+            descBuf[] = cast(char[])data[48 .. 176];
+            size_t descEnd = 0;
+            while (descEnd < 128 && descBuf[descEnd] != 0) {
+                descEnd++;
+            }
+            description = descBuf[0..descEnd].idup;
+        }
+
+        if (data.length >= 185) {
+            imageIndexes[0] = readUInt24(data, 176);
+            imageIndexes[1] = readUInt24(data, 179);
+            imageIndexes[2] = readUInt24(data, 182);
+        }
+
+        bets ~= Bet(betname, price, firstUser, secondUser, unixTimestamp, state, description, imageIndexes);
         debugWriteln(bets[i]);
     }
     debugWriteln("setting betsState to same length");
@@ -47,7 +69,7 @@ void loadAllBetsData() {
 }
 
 ubyte[] serializeBet(Bet b) {
-    ubyte[] result = new ubyte[48];
+    ubyte[] result = new ubyte[185];
 
     foreach (i; 0 .. 32) {
         result[i] = (i < b.betName.length) ? cast(ubyte)b.betName[i] : 0;
@@ -78,6 +100,20 @@ ubyte[] serializeBet(Bet b) {
 
     // status
     result[47] = b.status ? 1 : 0;
+
+    // description
+    foreach (i; 0 .. 128) {
+        result[48 + i] = (i < b.description.length) ? cast(ubyte)b.description[i] : 0;
+    }
+
+    // image indexes, 4 bytes, uint32
+    foreach (j; 0 .. 3) {
+        uint idx = b.imageIndexes[j];
+        size_t off = 176 + j * 3;
+        result[off]     = cast(ubyte)(idx & 0xFF);
+        result[off + 1] = cast(ubyte)((idx >> 8) & 0xFF);
+        result[off + 2] = cast(ubyte)((idx >> 16) & 0xFF);
+    }
 
     return result;
 }

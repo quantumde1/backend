@@ -4,6 +4,7 @@ import system.debugwriteln;
 import system.hpf;
 import db.users;
 import db.bets;
+import db.images;
 import networking.incoming;
 import networking.outcoming;
 import variables;
@@ -13,6 +14,7 @@ void preloader() {
 	debugWriteln("Loading all values into RAM");
 	loadAllUsersData();
 	loadAllBetsData();
+	loadAllImagesData();
 }
 
 void main(string[] args)
@@ -32,6 +34,7 @@ void main(string[] args)
 	// outcoming
 	router.get("/userInfo", &userInfo);
 	router.get("/betInfo", &betInfo);
+	router.get("/imageInfo", &imageInfo);
 	router.get("/flush", &flushData);
 
 	// incoming
@@ -46,6 +49,9 @@ void main(string[] args)
 	router.post("/betRemove", &removeBet);
 	router.post("/betStopAuction", &stopBetAuction);
 	router.post("/betSetResult", &setBetResult);
+
+	// images
+	router.post("/imageUpload", &uploadImage);
 
 	auto settings = new HTTPServerSettings;
 	settings.port = args[3].to!ushort;
