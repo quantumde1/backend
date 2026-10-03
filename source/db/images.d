@@ -1,30 +1,55 @@
 module db.images;
 
-import d2sqlite3;
 import system.debugwriteln;
+import system.hpf;
 import variables;
-import db.database;
+import std.file;
+import std.path;
 
+private string imagesArchivePath() {
+    return pathToData ~ "data/db/images.hpf";
+}
+
+void loadAllImagesData() {
+    debugWriteln("Loading images into RAM");
+    images.length = 0;
+    imageChunks.length = 0;
+
+    string archivePath = imagesArchivePath();
+    if (!exists(archivePath)) {
+        debugWriteln("images.hpf not found, starting empty");
+        return;
+    }
+
+    imageChunks = parseArchive(archivePath);
+    foreach (i; 0 .. imageChunks.length) {
+        ubyte[] data = loadFileFromHPF(archivePath, imageChunks, cast(int)i);
+        images ~= data;
+        debugWriteln("loaded image #", i, " (", data.length, " bytes)");
+    }
+}
+
+void saveAllImagesData() {
+    debugWriteln("Saving images to HPF (", images.length, " chunks)");
+    string archivePath = imagesArchivePath();
+    writeArchive(archivePath, images);
+    // Перечитываем TOC, чтобы после сохранения offsets были актуальны.
+    imageChunks = parseArchive(archivePath);
+}
+
+// Пишем HPF сразу при загрузке картинки, чтобы ставки, уже сохранённые
+// в SQLite, никогда не ссылались на «потерянный» индекс после краха.
 uint addImage(ubyte[] data) {
-    string mime = detectImageMime(data);
-    database.execute("INSERT INTO images (data, mime) VALUES (?, ?)", data, mime);
-    uint id = cast(uint)database.lastInsertRowid;
-    debugWriteln("added image #", id, " (", data.length, " bytes, ", mime, ")");
-    return id;
+    uint newIndex = cast(uint)images.length;
+    images ~= data;
+    debugWriteln("added image #", newIndex, " (", data.length, " bytes)");
+    saveAllImagesData();
+    return newIndex;
 }
 
 ubyte[] getImage(uint index) {
-    if (index == NO_IMAGE) return [];
-    foreach (row; database.execute("SELECT data FROM images WHERE id = ?", cast(long)index))
-        return row[0].as!(ubyte[]);
-    return [];
-}
-
-string getImageMime(uint index) {
-    if (index == NO_IMAGE) return "application/octet-stream";
-    foreach (row; database.execute("SELECT mime FROM images WHERE id = ?", cast(long)index))
-        return row[0].as!string;
-    return "application/octet-stream";
+    if (index == NO_IMAGE || index >= images.length) return [];
+    return images[index];
 }
 
 string detectImageMime(ubyte[] data) {

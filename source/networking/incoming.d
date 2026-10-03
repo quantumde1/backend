@@ -10,7 +10,6 @@ import db.images;
 import std.datetime;
 import std.base64;
 import std.conv;
-
 void registerUser(HTTPServerRequest req, HTTPServerResponse res) {
     debugWriteln("registering user");
     Json j = req.json;
@@ -203,9 +202,8 @@ void setBetResult(HTTPServerRequest req, HTTPServerResponse res) {
     res.writeBody("success");
 }
 
-// SQLite пишет сразу — flush больше не нужен. Оставлен для совместимости.
 void flushData(HTTPServerRequest req, HTTPServerResponse res) {
-    debugWriteln("flush: SQLite stores data immediately, noop");
+    debugWriteln("flush: SQLite — на диске, HPF-картинки тоже (пишутся при upload)");
     res.headers["Content-Type"] = "text/plain";
     res.statusCode = 200;
     res.writeBody("success");

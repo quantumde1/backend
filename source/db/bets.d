@@ -11,7 +11,8 @@ Bet getBetById(uint id) {
     Bet b;
     foreach (row; database.execute("
         SELECT id, bet_name, price, participant_one, participant_two,
-               unix_timestamp, status, description
+               unix_timestamp, status, description,
+               image_slot_0, image_slot_1, image_slot_2
         FROM bets WHERE id = ?", cast(long)id))
     {
         b.id             = cast(uint)row[0].as!long;
@@ -22,17 +23,10 @@ Bet getBetById(uint id) {
         b.unixTimestamp  = cast(uint)row[5].as!long;
         b.status         = row[6].as!long != 0;
         b.description    = row[7].as!string;
+        b.imageIndexes[0] = cast(uint)row[8].as!long;
+        b.imageIndexes[1] = cast(uint)row[9].as!long;
+        b.imageIndexes[2] = cast(uint)row[10].as!long;
         break;
-    }
-    if (b.id == 0) return b;
-
-    b.imageIndexes = [NO_IMAGE, NO_IMAGE, NO_IMAGE];
-    foreach (row; database.execute(
-        "SELECT slot, image_id FROM bet_images WHERE bet_id = ?",
-        cast(long)b.id))
-    {
-        uint slot = cast(uint)row[0].as!long;
-        if (slot < 3) b.imageIndexes[slot] = cast(uint)row[1].as!long;
     }
     return b;
 }
@@ -50,30 +44,29 @@ uint createBet(string betName, uint price, uint participantOne,
     database.execute("
         INSERT INTO bets
             (bet_name, price, participant_one, participant_two,
-             unix_timestamp, status, description)
-        VALUES (?, ?, ?, NULL, ?, 0, ?)",
-        betName, cast(long)price, cast(long)participantOne, cast(long)ts, description);
+             unix_timestamp, status, description,
+             image_slot_0, image_slot_1, image_slot_2)
+        VALUES (?, ?, ?, NULL, ?, 0, ?, ?, ?, ?)",
+        betName,
+        cast(long)price,
+        cast(long)participantOne,
+        cast(long)ts,
+        description,
+        cast(long)imageIndexes[0],
+        cast(long)imageIndexes[1],
+        cast(long)imageIndexes[2]);
 
     uint betId = cast(uint)database.lastInsertRowid;
-
-    foreach (slot; 0 .. 3) {
-        uint img = imageIndexes[slot];
-        if (img == NO_IMAGE) continue;
-        database.execute("INSERT INTO bet_images (bet_id, slot, image_id) VALUES (?, ?, ?)",
-                         cast(long)betId, cast(long)slot, cast(long)img);
-    }
-
     addUserToBet(participantOne, betId);
     return betId;
 }
 
 void setBetParticipantTwo(uint betId, uint userId) {
-    if (userId == 0) {
+    if (userId == 0)
         database.execute("UPDATE bets SET participant_two = NULL WHERE id = ?", cast(long)betId);
-    } else {
+    else
         database.execute("UPDATE bets SET participant_two = ? WHERE id = ?",
-                   cast(long)userId, cast(long)betId);
-    }
+                         cast(long)userId, cast(long)betId);
 }
 
 void setBetPrice(uint betId, uint price) {
@@ -82,7 +75,7 @@ void setBetPrice(uint betId, uint price) {
 
 void setBetStatus(uint betId, bool status) {
     database.execute("UPDATE bets SET status = ? WHERE id = ?",
-               cast(long)(status ? 1 : 0), cast(long)betId);
+                     cast(long)(status ? 1 : 0), cast(long)betId);
 }
 
 void deleteBet(uint betId) {

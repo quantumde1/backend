@@ -3,6 +3,11 @@ module variables;
 
 enum uint NO_IMAGE = 0xFFFFFF;
 
+struct ParsedChunk {
+    int offset;
+    int length;
+}
+
 struct Bet {
     uint id;
     string betName;
@@ -31,3 +36,6 @@ struct SystemSettings {
 
 SystemSettings systemSettings;
 string pathToData;
+
+ParsedChunk[] imageChunks;
+ubyte[][] images;

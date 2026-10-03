@@ -805,32 +805,63 @@ async function ownerStop(betId) {
    Create lot
    ========================================================================= */
 let creatingLot = false;
-let selectedLotImages = [];
+let selectedLotImages = [];   // накапливаем файлы, а не перезаписываем
 
-/** Wire up the file input for lot image previews. */
+function renderImagePreviews() {
+    const preview = document.getElementById('create-images-preview');
+    preview.innerHTML = '';
+    selectedLotImages.forEach((file, i) => {
+        const wrap = document.createElement('div');
+        wrap.style.position = 'relative';
+
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        Object.assign(img.style, {
+            width: '80px', height: '80px',
+            objectFit: 'cover', borderRadius: '4px'
+        });
+        wrap.appendChild(img);
+
+        const rm = document.createElement('button');
+        rm.type = 'button';
+        rm.textContent = '×';
+        Object.assign(rm.style, {
+            position: 'absolute', top: '-6px', right: '-6px',
+            width: '20px', height: '20px', padding: '0',
+            border: 'none', borderRadius: '50%',
+            background: '#e53935', color: '#fff',
+            fontSize: '14px', lineHeight: '20px', cursor: 'pointer'
+        });
+        rm.onclick = () => {
+            selectedLotImages.splice(i, 1);
+            renderImagePreviews();
+        };
+        wrap.appendChild(rm);
+
+        preview.appendChild(wrap);
+    });
+}
+
 (function initImageInput() {
     const input = document.getElementById('create-images');
     if (!input) return;
 
     input.addEventListener('change', () => {
-        selectedLotImages = Array.from(input.files).slice(0, 3);
+        const incoming = Array.from(input.files);
 
-        const preview = document.getElementById('create-images-preview');
-        preview.innerHTML = '';
-        selectedLotImages.forEach(file => {
-            const url = URL.createObjectURL(file);
-            const img = document.createElement('img');
-            img.src = url;
-            img.style.width = '80px';
-            img.style.height = '80px';
-            img.style.objectFit = 'cover';
-            img.style.borderRadius = '4px';
-            preview.appendChild(img);
-        });
-
-        if (input.files.length > 3) {
-            toast('Можно приложить не более 3 фото, лишние проигнорированы', 'orange');
+        for (const f of incoming) {
+            if (selectedLotImages.length >= 3) {
+                toast('Можно приложить не более 3 фото', 'orange');
+                break;
+            }
+            const dup = selectedLotImages.some(x =>
+                x.name === f.name && x.size === f.size && x.lastModified === f.lastModified);
+            if (!dup) selectedLotImages.push(f);
         }
+
+        // Сбрасываем сам input, чтобы повторный выбор того же файла снова сработал
+        input.value = '';
+        renderImagePreviews();
     });
 })();
 
