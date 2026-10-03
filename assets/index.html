@@ -206,7 +206,7 @@
                             <input id="create-seller" type="number" value="0" disabled>
                             <label for="create-seller" class="active">ID продавца (вы)</label>
                         </div>
-                        <p class="grey-text" style="font-size:0.85rem;">Фото товара (до 3 штук)</p>
+                        <p class="grey-text" style="font-size:0.85rem;">Фото товара (до 2 штук)</p>
                         <div class="row" style="margin-bottom:0;">
                             <div class="file-field input-field col s12">
                                 <div class="btn">
@@ -214,7 +214,7 @@
                                     <input type="file" id="create-images" accept="image/*" multiple>
                                 </div>
                                 <div class="file-path-wrapper">
-                                    <input class="file-path validate" type="text" placeholder="До 3 изображений">
+                                    <input class="file-path validate" type="text" placeholder="До 2 изображений">
                                 </div>
                             </div>
                         </div>
@@ -850,8 +850,8 @@ function renderImagePreviews() {
         const incoming = Array.from(input.files);
 
         for (const f of incoming) {
-            if (selectedLotImages.length >= 3) {
-                toast('Можно приложить не более 3 фото', 'orange');
+            if (selectedLotImages.length >= 2) {
+                toast('Можно приложить не более 2 фото', 'orange');
                 break;
             }
             const dup = selectedLotImages.some(x =>
