@@ -1,119 +1,90 @@
 module db.bets;
 
+import d2sqlite3;
 import system.debugwriteln;
-import system.hpf;
 import variables;
-import system.uintreader;
-import db.images;
+import db.database;
+import db.users;
+import std.datetime : Clock;
 
-/*
-every bet uses 32 bytes for its name, its cost in uint24(3 bytes), and participants(indexes of them, uint32),
-also UNIX timestamp in uint32, and 1 byte for state.
-*/
-void loadAllBetsData() {
-    debugWriteln("Loading bets into RAM");
-    if (parsedChunks.length == 0) {
-        parsedChunks.length = 3;
+Bet getBetById(uint id) {
+    Bet b;
+    foreach (row; database.execute("
+        SELECT id, bet_name, price, participant_one, participant_two,
+               unix_timestamp, status, description
+        FROM bets WHERE id = ?", cast(long)id))
+    {
+        b.id             = cast(uint)row[0].as!long;
+        b.betName        = row[1].as!string;
+        b.price          = cast(uint)row[2].as!long;
+        b.participantOne = cast(uint)row[3].as!long;
+        b.participantTwo = cast(uint)row[4].as!long;
+        b.unixTimestamp  = cast(uint)row[5].as!long;
+        b.status         = row[6].as!long != 0;
+        b.description    = row[7].as!string;
+        break;
     }
-    parsedChunks[1] = parseArchive(pathToData~"data/db/bets.hpf");
-    bets.length = 0;
-    
-    for (int i = 0; i < parsedChunks[1].length; i++) {
-        ubyte[] data = loadFileFromHPF("data/db/bets.hpf", parsedChunks[1], cast(int)i);
-        if (data.length < 48) {
-            debugWriteln("chunk ", i, " too small, skipping");
-            continue;
-        }
-        char[32] nameBuf;
-        nameBuf[] = cast(char[])data[0 .. 32];
-        size_t nameEnd = 0;
-        while (nameEnd < 32 && nameBuf[nameEnd] != 0) {
-            nameEnd++;
-        }
-        string betname = nameBuf[0..nameEnd].idup;
-        uint price = readUInt24(data, 32);
-        uint firstUser = readUInt32(data, 35);
-        uint secondUser = readUInt32(data, 39);
-        uint unixTimestamp = readUInt32(data, 43);
-        bool state = cast(bool)data[47];
+    if (b.id == 0) return b;
 
-        string description = "";
-        uint[3] imageIndexes = [NO_IMAGE, NO_IMAGE, NO_IMAGE];
-
-        if (data.length >= 176) {
-            char[128] descBuf;
-            descBuf[] = cast(char[])data[48 .. 176];
-            size_t descEnd = 0;
-            while (descEnd < 128 && descBuf[descEnd] != 0) {
-                descEnd++;
-            }
-            description = descBuf[0..descEnd].idup;
-        }
-
-        if (data.length >= 185) {
-            imageIndexes[0] = readUInt24(data, 176);
-            imageIndexes[1] = readUInt24(data, 179);
-            imageIndexes[2] = readUInt24(data, 182);
-        }
-
-        bets ~= Bet(betname, price, firstUser, secondUser, unixTimestamp, state, description, imageIndexes);
-        debugWriteln(bets[i]);
+    b.imageIndexes = [NO_IMAGE, NO_IMAGE, NO_IMAGE];
+    foreach (row; database.execute(
+        "SELECT slot, image_id FROM bet_images WHERE bet_id = ?",
+        cast(long)b.id))
+    {
+        uint slot = cast(uint)row[0].as!long;
+        if (slot < 3) b.imageIndexes[slot] = cast(uint)row[1].as!long;
     }
-    debugWriteln("setting betsState to same length");
-    betsState.length = bets.length;
-    for (int i = 0; i < betsState.length; i++) {
-        if (betsState[i] != true) {
-            betsState[i] = false;
-        }
+    return b;
+}
+
+bool betExists(uint id) {
+    foreach (row; database.execute("SELECT 1 FROM bets WHERE id = ? LIMIT 1", cast(long)id))
+        return true;
+    return false;
+}
+
+uint createBet(string betName, uint price, uint participantOne,
+               string description, uint[3] imageIndexes)
+{
+    uint ts = cast(uint)Clock.currTime().toUnixTime();
+    database.execute("
+        INSERT INTO bets
+            (bet_name, price, participant_one, participant_two,
+             unix_timestamp, status, description)
+        VALUES (?, ?, ?, NULL, ?, 0, ?)",
+        betName, cast(long)price, cast(long)participantOne, cast(long)ts, description);
+
+    uint betId = cast(uint)database.lastInsertRowid;
+
+    foreach (slot; 0 .. 3) {
+        uint img = imageIndexes[slot];
+        if (img == NO_IMAGE) continue;
+        database.execute("INSERT INTO bet_images (bet_id, slot, image_id) VALUES (?, ?, ?)",
+                         cast(long)betId, cast(long)slot, cast(long)img);
+    }
+
+    addUserToBet(participantOne, betId);
+    return betId;
+}
+
+void setBetParticipantTwo(uint betId, uint userId) {
+    if (userId == 0) {
+        database.execute("UPDATE bets SET participant_two = NULL WHERE id = ?", cast(long)betId);
+    } else {
+        database.execute("UPDATE bets SET participant_two = ? WHERE id = ?",
+                   cast(long)userId, cast(long)betId);
     }
 }
 
-ubyte[] serializeBet(Bet b) {
-    ubyte[] result = new ubyte[185];
+void setBetPrice(uint betId, uint price) {
+    database.execute("UPDATE bets SET price = ? WHERE id = ?", cast(long)price, cast(long)betId);
+}
 
-    foreach (i; 0 .. 32) {
-        result[i] = (i < b.betName.length) ? cast(ubyte)b.betName[i] : 0;
-    }
+void setBetStatus(uint betId, bool status) {
+    database.execute("UPDATE bets SET status = ? WHERE id = ?",
+               cast(long)(status ? 1 : 0), cast(long)betId);
+}
 
-    // цена (uint24, little-endian)
-    result[32] = cast(ubyte)(b.price & 0xFF);
-    result[33] = cast(ubyte)((b.price >> 8) & 0xFF);
-    result[34] = cast(ubyte)((b.price >> 16) & 0xFF);
-
-    // participantOne (uint32, little-endian)
-    result[35] = cast(ubyte)(b.participantOne & 0xFF);
-    result[36] = cast(ubyte)((b.participantOne >> 8) & 0xFF);
-    result[37] = cast(ubyte)((b.participantOne >> 16) & 0xFF);
-    result[38] = cast(ubyte)((b.participantOne >> 24) & 0xFF);
-
-    // participantTwo (uint32, little-endian)
-    result[39] = cast(ubyte)(b.participantTwo & 0xFF);
-    result[40] = cast(ubyte)((b.participantTwo >> 8) & 0xFF);
-    result[41] = cast(ubyte)((b.participantTwo >> 16) & 0xFF);
-    result[42] = cast(ubyte)((b.participantTwo >> 24) & 0xFF);
-
-    // unixTimestamp (uint32, little-endian)
-    result[43] = cast(ubyte)(b.unixTimestamp & 0xFF);
-    result[44] = cast(ubyte)((b.unixTimestamp >> 8) & 0xFF);
-    result[45] = cast(ubyte)((b.unixTimestamp >> 16) & 0xFF);
-    result[46] = cast(ubyte)((b.unixTimestamp >> 24) & 0xFF);
-
-    // status
-    result[47] = b.status ? 1 : 0;
-
-    // description
-    foreach (i; 0 .. 128) {
-        result[48 + i] = (i < b.description.length) ? cast(ubyte)b.description[i] : 0;
-    }
-
-    // image indexes, 4 bytes, uint32
-    foreach (j; 0 .. 3) {
-        uint idx = b.imageIndexes[j];
-        size_t off = 176 + j * 3;
-        result[off]     = cast(ubyte)(idx & 0xFF);
-        result[off + 1] = cast(ubyte)((idx >> 8) & 0xFF);
-        result[off + 2] = cast(ubyte)((idx >> 16) & 0xFF);
-    }
-
-    return result;
+void deleteBet(uint betId) {
+    database.execute("DELETE FROM bets WHERE id = ?", cast(long)betId);
 }

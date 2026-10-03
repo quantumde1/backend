@@ -4,7 +4,8 @@
 	],
 	"copyright": "Copyright © 2026, quantumde1",
 	"dependencies": {
-		"vibe-d": "~>0.10.3"
+		"vibe-d": "~>0.10.0",
+		"d2sqlite3": "~>1.0.0"
 	},
 	"description": "eshkere jokery",
 	"license": "MIT",

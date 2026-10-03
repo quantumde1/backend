@@ -1,98 +1,88 @@
 module db.users;
 
+import d2sqlite3;
 import system.debugwriteln;
-import system.hpf;
 import variables;
-import system.uintreader;
-import std.conv;
+import db.database;
 
-/* one user takes 
-16 bytes - nickname in ASCII
-32 bytes - hashed password
-4 bytes - balance in uint32
-3 bytes - how much bets was already done in uint24(for ram economy lmfaooo)
-every bet is stored as index which points into bets.hpf
-*/
-
-// use only for testing
-void loadAllUsersData() {
-    debugWriteln("Loading users into RAM");
-    if (parsedChunks.length == 0) {
-        parsedChunks.length = 3;
+User getUserById(uint id) {
+    User u;
+    foreach (row; database.execute(
+        "SELECT id, nickname, hashed_password, balance FROM users WHERE id = ?",
+        cast(long)id))
+    {
+        u.id = cast(uint)row[0].as!long;
+        u.nickname = row[1].as!string;
+        u.hashedPassword = row[2].as!string;
+        u.balance = cast(uint)row[3].as!long;
+        break;
     }
-    parsedChunks[0] = parseArchive(pathToData~"data/db/users.hpf");
-    users.length = 0;
-    
-    for (int i = 0; i < parsedChunks[0].length; i++) {
-        ubyte[] data = loadFileFromHPF("data/db/users.hpf", parsedChunks[0], cast(int)i);
-        
-        if (data.length < 55) {
-            debugWriteln("chunk ", i, " too small (", data.length, "), skipping");
-            continue;
-        }
-        
-        char[16] nameBuf;
-        nameBuf[] = cast(char[]) data[0 .. 16];
-        size_t nameEnd = 0;
-        while (nameEnd < 16 && nameBuf[nameEnd] != 0) nameEnd++;
-        string nickname = nameBuf[0 .. nameEnd].idup;
-        
-        char[32] passwordHash;
-        passwordHash[] = cast(char[]) data[16 .. 48];
-        size_t passwordEnd = 0;
-        while (passwordEnd < 32 && passwordHash[passwordEnd] != 0) passwordEnd++;
-        string password = passwordHash[0 .. passwordEnd].idup;
-        
-        uint balance = readUInt32(data, 48);
-        
-        uint betsDone = readUInt24(data, 52);
-        
-        uint[] betsIndexes;
-        betsIndexes.reserve(betsDone);
-        for (uint j = 0; j < betsDone; j++) {
-            size_t offset = 55 + j * 3;
-            if (offset + 3 > data.length) {
-                debugWriteln("chunk ", i, ": bet index ", j, " out of bounds");
-                break;
-            }
-            betsIndexes ~= readUInt24(data, offset);
-        }
-        
-        users ~= User(nickname, password, balance, betsDone, betsIndexes);
-        debugWriteln(users[$-1]);
-    }
+    if (u.id == 0) return u;
+    loadUserBets(u);
+    return u;
 }
 
-ubyte[] serializeUser(User u) {
-    size_t totalSize = 16 + 32 + 4 + 3 + u.betsIndexes.length * 3;
-    ubyte[] result = new ubyte[totalSize];
-
-    for (int i = 0; i < 16; i++) {
-        result[i] = (i < u.nickname.length) ? cast(ubyte)u.nickname[i] : 0;
+User getUserByNickname(string nickname) {
+    User u;
+    foreach (row; database.execute(
+        "SELECT id, nickname, hashed_password, balance FROM users WHERE nickname = ?",
+        nickname))
+    {
+        u.id = cast(uint)row[0].as!long;
+        u.nickname = row[1].as!string;
+        u.hashedPassword = row[2].as!string;
+        u.balance = cast(uint)row[3].as!long;
+        break;
     }
+    if (u.id == 0) return u;
+    loadUserBets(u);
+    return u;
+}
 
-    for (int i = 0; i < 32; i++) {
-        result[16 + i] = (i < u.hashedPassword.length) ? cast(ubyte)u.hashedPassword[i] : 0;
+private void loadUserBets(ref User u) {
+    uint[] betIds;
+    foreach (row; database.execute(
+        "SELECT bet_id FROM bet_participants WHERE user_id = ? ORDER BY bet_id",
+        cast(long)u.id))
+    {
+        betIds ~= cast(uint)row[0].as!long;
     }
+    u.betsIndexes = betIds;
+    u.betsDone = cast(uint)betIds.length;
+}
 
-    // balance (uint32, little-endian)
-    result[48] = cast(ubyte)(u.balance & 0xFF);
-    result[49] = cast(ubyte)((u.balance >> 8) & 0xFF);
-    result[50] = cast(ubyte)((u.balance >> 16) & 0xFF);
-    result[51] = cast(ubyte)((u.balance >> 24) & 0xFF);
+bool userExists(uint id) {
+    foreach (row; database.execute("SELECT 1 FROM users WHERE id = ? LIMIT 1", cast(long)id))
+        return true;
+    return false;
+}
 
-    // betsDone (uint24, little-endian)
-    uint betsDone = cast(uint)u.betsIndexes.length;
-    result[52] = cast(ubyte)(betsDone & 0xFF);
-    result[53] = cast(ubyte)((betsDone >> 8) & 0xFF);
-    result[54] = cast(ubyte)((betsDone >> 16) & 0xFF);
+uint createUser(string nickname, string hashedPassword, uint balance = 0) {
+    database.execute(
+        "INSERT INTO users (nickname, hashed_password, balance) VALUES (?, ?, ?)",
+        nickname, hashedPassword, cast(long)balance);
+    return cast(uint)database.lastInsertRowid;
+}
 
-    foreach (j, idx; u.betsIndexes) {
-        size_t off = 55 + j * 3;
-        result[off]     = cast(ubyte)(idx & 0xFF);
-        result[off + 1] = cast(ubyte)((idx >> 8) & 0xFF);
-        result[off + 2] = cast(ubyte)((idx >> 16) & 0xFF);
-    }
+void setUserBalance(uint userId, uint balance) {
+    database.execute("UPDATE users SET balance = ? WHERE id = ?",
+               cast(long)balance, cast(long)userId);
+}
 
-    return result;
+void addUserToBet(uint userId, uint betId) {
+    database.execute("INSERT OR IGNORE INTO bet_participants (user_id, bet_id) VALUES (?, ?)",
+               cast(long)userId, cast(long)betId);
+}
+
+void removeUserFromBet(uint userId, uint betId) {
+    database.execute("DELETE FROM bet_participants WHERE user_id = ? AND bet_id = ?",
+               cast(long)userId, cast(long)betId);
+}
+
+bool userInBet(uint userId, uint betId) {
+    foreach (row; database.execute(
+        "SELECT 1 FROM bet_participants WHERE user_id = ? AND bet_id = ? LIMIT 1",
+        cast(long)userId, cast(long)betId))
+        return true;
+    return false;
 }

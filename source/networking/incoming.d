@@ -4,70 +4,56 @@ import system.debugwriteln;
 import variables;
 import vibe.vibe;
 import vibe.data.json;
-import system.hpf;
 import db.users;
 import db.bets;
 import db.images;
-import std.array;
 import std.datetime;
-import std.range;
-import std.algorithm;
 import std.base64;
 import std.conv;
 
 void registerUser(HTTPServerRequest req, HTTPServerResponse res) {
-    debugWriteln("registering user in RAM");
-    Json registerJson = req.json;
+    debugWriteln("registering user");
+    Json j = req.json;
+    string nickname = j["nickname"].get!string;
+    string passwordHash = j["passwordHash"].get!string;
 
-    string nickname = registerJson["nickname"].get!string;
-    string passwordHash = registerJson["passwordHash"].get!string;
-    uint balance = 0;
-    uint betsDone = 0;
-    uint[] betsIndexes;
-    users ~= User(nickname, passwordHash, balance, betsDone, betsIndexes);
+    if (getUserByNickname(nickname).id != 0) {
+        res.statusCode = 409;
+        res.writeBody("error_user_exists");
+        return;
+    }
+
+    createUser(nickname, passwordHash);
     debugWriteln("registered successfully: ", nickname);
     res.statusCode = 200;
-    res.writeBody(nickname~" success\n");
+    res.writeBody(nickname ~ " success\n");
 }
 
 void loginUser(HTTPServerRequest req, HTTPServerResponse res) {
-    debugWriteln("logging in user in RAM");
-    Json loginJson = req.json;
-    string passwordHash = loginJson["passwordHash"].get!string;
-    string nickname = loginJson["nickname"].get!string;
-    uint userId;
-    for (int i = 0; i < users.length; i++) {
-        if (users[i].nickname == nickname) {
-            userId = i;
-            debugWriteln("user index: ", i);
-        }
-    }
-    if (userId == 0) {
-        debugWriteln("user not found");
+    debugWriteln("logging in user");
+    Json j = req.json;
+    string passwordHash = j["passwordHash"].get!string;
+    string nickname     = j["nickname"].get!string;
+
+    User u = getUserByNickname(nickname);
+    if (u.id == 0) {
         res.writeBody("error_no_user");
         return;
     }
-    if (passwordHash == users[userId].hashedPassword) {
-        res.writeBody(userId.to!string);
+    if (passwordHash == u.hashedPassword) {
         res.statusCode = 200;
+        res.writeBody(u.id.to!string);
     } else {
         res.writeBody("error_incorrect_pwd");
-        debugWriteln("incorrent pwd entered for user: ", userId);
-        return;
     }
-    res.statusCode = 200;
 }
 
 void uploadImage(HTTPServerRequest req, HTTPServerResponse res) {
-    debugWriteln("uploading lot image into RAM");
-    Json uploadJson = req.json;
+    debugWriteln("uploading image");
+    Json j = req.json;
+    if ("data" !in j) { res.writeBody("error_no_data"); return; }
 
-    if ("data" !in uploadJson) {
-        res.writeBody("error_no_data");
-        return;
-    }
-    string base64Data = uploadJson["data"].get!string;
-
+    string base64Data = j["data"].get!string;
     ubyte[] imageData;
     try {
         imageData = cast(ubyte[])Base64.decode(base64Data);
@@ -76,11 +62,7 @@ void uploadImage(HTTPServerRequest req, HTTPServerResponse res) {
         res.writeBody("error_bad_base64");
         return;
     }
-
-    if (imageData.length == 0) {
-        res.writeBody("error_empty_image");
-        return;
-    }
+    if (imageData.length == 0) { res.writeBody("error_empty_image"); return; }
 
     uint newIndex = addImage(imageData);
     res.statusCode = 200;
@@ -88,51 +70,30 @@ void uploadImage(HTTPServerRequest req, HTTPServerResponse res) {
 }
 
 void registerBet(HTTPServerRequest req, HTTPServerResponse res) {
-    debugWriteln("creating bet in RAM");
-    Json registerJson = req.json;
-    string betName = registerJson["betname"].get!string;
-    uint price = registerJson["price"].get!uint;
-    uint participantOne = registerJson["participantOne"].get!uint;
+    debugWriteln("creating bet");
+    Json j = req.json;
+    string betName     = j["betname"].get!string;
+    uint price         = j["price"].get!uint;
+    uint participantOne = j["participantOne"].get!uint;
 
     string description = "";
-    if ("description" in registerJson) {
-        description = registerJson["description"].get!string;
-        if (description.length > 128) {
-            description = description[0 .. 128];
-        }
+    if ("description" in j) {
+        description = j["description"].get!string;
+        if (description.length > 128) description = description[0 .. 128];
     }
 
     uint[3] imageIndexes = [NO_IMAGE, NO_IMAGE, NO_IMAGE];
-    if ("images" in registerJson) {
-        auto imagesJson = registerJson["images"];
-        for (int i = 0; i < 3; i++) {
-            if (i < imagesJson.length) {
-                imageIndexes[i] = imagesJson[i].get!uint;
-            }
-        }
+    if ("images" in j) {
+        auto imgs = j["images"];
+        for (int i = 0; i < 3; i++)
+            if (i < imgs.length) imageIndexes[i] = imgs[i].get!uint;
     }
 
-    if (users.length <= participantOne) {
-        debugWriteln("no such user");
-        res.writeBody("error_no_user");
-        return;
-    }
-    if (price > users[participantOne].balance) {
-        debugWriteln("user balance is lower than price! stop");
-        res.writeBody("error_price_high");
-        return;
-    }
+    User u = getUserById(participantOne);
+    if (u.id == 0) { res.writeBody("error_no_user"); return; }
+    if (price > u.balance) { res.writeBody("error_price_high"); return; }
 
-    uint participantTwo = 0;
-    uint time = cast(uint)Clock.currTime().toUnixTime();
-    bool status = false;
-
-    uint newBetIndex = cast(uint)bets.length;
-    bets ~= Bet(betName, price, participantOne, participantTwo, time, status, description, imageIndexes);
-
-    users[participantOne].betsIndexes ~= newBetIndex;
-    users[participantOne].betsDone = cast(uint)users[participantOne].betsIndexes.length;
-
+    uint newBetIndex = createBet(betName, price, participantOne, description, imageIndexes);
     debugWriteln("created bet #", newBetIndex, " '", betName, "' by user ", participantOne);
     res.statusCode = 200;
     res.writeBody("success");
@@ -140,162 +101,112 @@ void registerBet(HTTPServerRequest req, HTTPServerResponse res) {
 
 void updateUserBalance(HTTPServerRequest req, HTTPServerResponse res) {
     debugWriteln("updating user balance");
-    Json updateJson = req.json;
-    uint balance = updateJson["balance"].get!uint;
-    uint userToUpdate = updateJson["userId"].get!uint;
-    if (users.length <= userToUpdate) {
-        debugWriteln("no such user");
-        res.writeBody("error_no_user");
-        return;
-    }
-    users[userToUpdate].balance = balance;
+    Json j = req.json;
+    uint balance      = j["balance"].get!uint;
+    uint userToUpdate = j["userId"].get!uint;
+
+    if (!userExists(userToUpdate)) { res.writeBody("error_no_user"); return; }
+    setUserBalance(userToUpdate, balance);
     res.statusCode = 200;
     res.writeBody("success");
 }
 
 void takePartInBet(HTTPServerRequest req, HTTPServerResponse res) {
-    Json partJson = req.json;
-    uint userId   = partJson["userId"].get!uint;
-    uint betId    = partJson["betId"].get!uint;
-    uint betPrice = partJson["betPrice"].get!uint;
+    Json j = req.json;
+    uint userId   = j["userId"].get!uint;
+    uint betId    = j["betId"].get!uint;
+    uint betPrice = j["betPrice"].get!uint;
 
-    if (userId >= users.length || betId >= bets.length) {
+    if (!userExists(userId) || !betExists(betId)) {
         res.writeBody("error_no_such"); return;
     }
-    if (betPrice < bets[betId].price) {
-        res.writeBody("error_price_lower_than_before"); return;
-    }
-    if (users[userId].balance < bets[betId].price) {
-        res.writeBody("error_price_high"); return;
-    }
+    Bet b = getBetById(betId);
+    User u = getUserById(userId);
 
-    bool alreadyParticipates = users[userId].betsIndexes.canFind(betId);
+    if (betPrice < b.price) { res.writeBody("error_price_lower_than_before"); return; }
+    if (u.balance < b.price) { res.writeBody("error_price_high"); return; }
 
-    bets[betId].participantTwo = userId;
-    bets[betId].price = betPrice;
+    bool already = userInBet(userId, betId);
 
-    if (!alreadyParticipates) {
-        users[userId].betsIndexes ~= betId;
-        //users[userId].betsDone = cast(uint)users[userId].betsIndexes.length;
-    }
+    setBetParticipantTwo(betId, userId);
+    setBetPrice(betId, betPrice);
+    if (!already) addUserToBet(userId, betId);
 
     res.statusCode = 200;
     res.writeBody("success");
 }
 
 void untakePartInBet(HTTPServerRequest req, HTTPServerResponse res) {
-    Json partJson = req.json;
-    uint userId = partJson["userId"].get!uint;
-    uint betId = partJson["betId"].get!uint;
-    if (bets[betId].status == true || bets[betId].participantOne == userId) {
-        debugWriteln("cannot untake part either cuz auction stopped or cuz you're a creator");
+    Json j = req.json;
+    uint userId = j["userId"].get!uint;
+    uint betId  = j["betId"].get!uint;
+
+    Bet b = getBetById(betId);
+    if (b.id == 0) { res.writeBody("error_no_bet"); return; }
+
+    if (b.status == true || b.participantOne == userId) {
+        debugWriteln("cannot untake");
         res.writeBody("error_cannot_untake");
         return;
     }
-    bets[betId].participantTwo = 0;
-    users[userId].betsIndexes = users[userId].betsIndexes
-        .filter!(i => i != betId).array;
-    users[userId].betsDone = cast(uint)users[userId].betsIndexes.length;
+
+    setBetParticipantTwo(betId, 0);
+    removeUserFromBet(userId, betId);
     debugWriteln("removed participant!");
+    res.statusCode = 200;
+    res.writeBody("success");
 }
 
 void removeBet(HTTPServerRequest req, HTTPServerResponse res) {
-    Json partJson = req.json;
-    uint userId = partJson["userId"].get!uint;
-    uint betId = partJson["betId"].get!uint;
-    if (userId != bets[betId].participantOne) {
-        debugWriteln("You're not a creator");
+    Json j = req.json;
+    uint userId = j["userId"].get!uint;
+    uint betId  = j["betId"].get!uint;
+
+    Bet b = getBetById(betId);
+    if (b.id == 0) { res.writeBody("error_no_bet"); return; }
+    if (userId != b.participantOne) {
         res.writeBody("error_not_creator");
         return;
     }
-    bets = bets[0 .. betId].chain(bets[betId+1 .. $]).array;
+
+    deleteBet(betId);
     res.statusCode = 200;
     res.writeBody("success");
 }
 
 void stopBetAuction(HTTPServerRequest req, HTTPServerResponse res) {
-    Json partJson = req.json;
-    uint betId = partJson["betId"].get!uint;
-    if (bets[betId].status == true) {
-        debugWriteln("already stopped auction and cannot untake!");
-        label_here:
-        res.statusCode = 200;
-        res.writeBody("success");
-        return;
-    }
-    bets[betId].status = true;
-    goto label_here;
-}
-
-void setBetResult(HTTPServerRequest req, HTTPServerResponse res) {
-    Json partJson = req.json;
-    uint betIndex  = partJson["betId"].get!uint;
-
-    if (betIndex >= bets.length) {
-        res.writeBody("error_no_bet"); return;
-    }
-    auto bet = bets[betIndex];
-    if (bet.participantTwo == 0) {
-        res.writeBody("error_no_participant_two"); return;
-    }
-    if (bet.status == true) {
-        res.writeBody("error_already_settled"); return;
-    }
-
-    debugWriteln(bet.participantOne);
-    debugWriteln(bet.participantTwo);
-    users[bet.participantOne].balance += bet.price;
-    users[bet.participantTwo].balance -= bet.price;
-    bets[betIndex].status = true;
+    Json j = req.json;
+    uint betId = j["betId"].get!uint;
+    if (!betExists(betId)) { res.writeBody("error_no_bet"); return; }
+    setBetStatus(betId, true);
     res.statusCode = 200;
     res.writeBody("success");
 }
 
+void setBetResult(HTTPServerRequest req, HTTPServerResponse res) {
+    Json j = req.json;
+    uint betIndex = j["betId"].get!uint;
+
+    Bet b = getBetById(betIndex);
+    if (b.id == 0) { res.writeBody("error_no_bet"); return; }
+    if (b.participantTwo == 0) { res.writeBody("error_no_participant_two"); return; }
+    if (b.status == true) { res.writeBody("error_already_settled"); return; }
+
+    User p1 = getUserById(b.participantOne);
+    User p2 = getUserById(b.participantTwo);
+
+    setUserBalance(p1.id, p1.balance + b.price);
+    setUserBalance(p2.id, p2.balance - b.price);
+    setBetStatus(betIndex, true);
+
+    res.statusCode = 200;
+    res.writeBody("success");
+}
+
+// SQLite пишет сразу — flush больше не нужен. Оставлен для совместимости.
 void flushData(HTTPServerRequest req, HTTPServerResponse res) {
-    debugWriteln("flush: recreating archives using RAM data");
-
-    ubyte[][] userChunks;
-    userChunks.reserve(users.length);
-    foreach (ref u; users) {
-        userChunks ~= serializeUser(u);
-    }
-
-    ubyte[][] betChunks;
-    betChunks.reserve(bets.length);
-    foreach (ref b; bets) {
-        betChunks ~= serializeBet(b);
-    }
-
-    ubyte[][] imageChunks = images.dup;
-
-    bool ok = true;
-    string errorMsg;
-
-    try {
-        writeArchive("data/db/users.hpf", userChunks);
-        writeArchive("data/db/bets.hpf", betChunks);
-        writeArchive("data/db/images.hpf", imageChunks);
-
-        if (parsedChunks.length < 3) parsedChunks.length = 3;
-        parsedChunks[0] = parseArchive("data/db/users.hpf");
-        parsedChunks[1] = parseArchive("data/db/bets.hpf");
-        parsedChunks[2] = parseArchive("data/db/images.hpf");
-    } catch (Exception e) {
-        ok = false;
-        errorMsg = e.msg;
-        debugWriteln("flush: error: ", e.msg);
-    }
-
+    debugWriteln("flush: SQLite stores data immediately, noop");
     res.headers["Content-Type"] = "text/plain";
-    res.statusCode = ok ? 200 : 500;
-    if (ok == true) {
-        users.length = 0;
-        bets.length = 0;
-        images.length = 0;
-        debugWriteln("Reloading databases to RAM");
-        loadAllUsersData();
-        loadAllBetsData();
-        loadAllImagesData();
-    }
+    res.statusCode = 200;
     res.writeBody("success");
 }
