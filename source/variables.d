@@ -1,12 +1,9 @@
 // quantumde1 developed software, licensed under MIT license.
 module variables;
 
-enum uint NO_IMAGE = 0xFFFFFF;
+import d2sqlite3;
 
-struct ParsedChunk {
-    int offset;
-    int length;
-}
+enum uint NO_IMAGE = 0xFFFFFF;
 
 struct Bet {
     uint id;
@@ -37,5 +34,5 @@ struct SystemSettings {
 SystemSettings systemSettings;
 string pathToData;
 
-ParsedChunk[] imageChunks;
-ubyte[][] images;
+
+Database database;

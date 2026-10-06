@@ -19,26 +19,19 @@ void main(string[] args)
     }
 
     pathToData = args[1];
-
-    // SQLite открывается сразу, схема создаётся при первом запуске.
-    // Данные подгружаются on-demand — кэш в памяти больше не нужен.
     initDatabase(pathToData);
 
     auto router = new URLRouter;
     router.get("*", serveStaticFiles(pathToData ~ "/assets/"));
 
-    // outcoming
     router.get("/userInfo",  &userInfo);
     router.get("/betInfo",   &betInfo);
     router.get("/imageInfo", &imageInfo);
-    router.get("/flush",     &flushData);
 
-    // incoming
     router.post("/userRegister",      &registerUser);
     router.post("/userLogin",         &loginUser);
     router.post("/userUpdateBalance", &updateUserBalance);
 
-    // bets
     router.post("/betRegister",     &registerBet);
     router.post("/betTakePart",     &takePartInBet);
     router.post("/betUntakePart",   &untakePartInBet);
@@ -46,7 +39,6 @@ void main(string[] args)
     router.post("/betStopAuction",  &stopBetAuction);
     router.post("/betSetResult",    &setBetResult);
 
-    // images
     router.post("/imageUpload", &uploadImage);
 
     auto settings = new HTTPServerSettings;

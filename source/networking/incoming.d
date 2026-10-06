@@ -201,10 +201,3 @@ void setBetResult(HTTPServerRequest req, HTTPServerResponse res) {
     res.statusCode = 200;
     res.writeBody("success");
 }
-
-void flushData(HTTPServerRequest req, HTTPServerResponse res) {
-    debugWriteln("flush: SQLite — на диске, HPF-картинки тоже (пишутся при upload)");
-    res.headers["Content-Type"] = "text/plain";
-    res.statusCode = 200;
-    res.writeBody("success");
-}

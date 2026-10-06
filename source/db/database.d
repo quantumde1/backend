@@ -3,8 +3,7 @@ module db.database;
 import d2sqlite3;
 import system.debugwriteln;
 import std.path;
-
-Database database;
+import variables;
 
 void initDatabase(string dataPath) {
     string dbPath = buildPath(dataPath, "data", "db", "lottery.sqlite");
@@ -50,6 +49,13 @@ private void createTables() {
             PRIMARY KEY (user_id, bet_id),
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             FOREIGN KEY (bet_id) REFERENCES bets(id) ON DELETE CASCADE
+        )
+    ");
+
+    database.execute("
+        CREATE TABLE IF NOT EXISTS images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            data BLOB NOT NULL
         )
     ");
 }
