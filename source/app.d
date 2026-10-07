@@ -44,6 +44,7 @@ void main(string[] args)
     auto settings = new HTTPServerSettings;
     settings.port = args[3].to!ushort;
     settings.bindAddresses = [args[2].to!string];
+    settings.maxRequestSize = 3_355_443_2;
     listenHTTP(settings, router);
     runApplication();
 }

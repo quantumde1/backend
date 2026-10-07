@@ -14,7 +14,7 @@ struct Bet {
     uint unixTimestamp;
     bool status;
     string description;
-    uint[3] imageIndexes;
+    uint[10] imageIndexes;
 }
 
 struct User {

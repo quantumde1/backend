@@ -206,7 +206,7 @@
                             <input id="create-seller" type="number" value="0" disabled>
                             <label for="create-seller" class="active">ID продавца (вы)</label>
                         </div>
-                        <p class="grey-text" style="font-size:0.85rem;">Фото товара (до 2 штук)</p>
+                        <p class="grey-text" style="font-size:0.85rem;">Фото товара (10 штук)</p>
                         <div class="row" style="margin-bottom:0;">
                             <div class="file-field input-field col s12">
                                 <div class="btn">
@@ -537,6 +537,7 @@ function updateNav() {
    ========================================================================= */
 async function registerUser() {
     const nickname = document.getElementById('reg-nickname').value.trim();
+    if (nickname.length >= 40) return toast('Длина имени не может быть больше 40 символов!', 'red')
     const passwordHash = document.getElementById('reg-password').value.trim();
     if (!nickname || !passwordHash) return toast('Заполните все поля', 'orange');
 
@@ -760,7 +761,7 @@ function openBid(lotId, currentPrice, lotName) {
 async function submitBid() {
     const amount = parseInt(document.getElementById('bid-amount').value);
     if (!amount || amount <= 0) return toast('Введите сумму', 'orange');
-
+    if (amount >= 4294967295) return toast('Не может быть больше 4294967295!', 'red')
     const r = await post('/betTakePart', {
         userId: currentUser.id,
         betId: currentBidLotId,
@@ -850,8 +851,11 @@ function renderImagePreviews() {
         const incoming = Array.from(input.files);
 
         for (const f of incoming) {
-            if (selectedLotImages.length >= 2) {
-                toast('Можно приложить не более 2 фото', 'orange');
+            if (f.size >= 32 * 1024 * 1024) {
+                toast('Макс. размер вложений 32 мбайт', 'orange');
+            }
+            if (selectedLotImages.length >= 10) {
+                toast('Можно приложить не более 10 фото размером макс. 32 мбайт', 'orange');
                 break;
             }
             const dup = selectedLotImages.some(x =>
@@ -891,7 +895,7 @@ async function createLot() {
 
     if (!betname) return toast('Введите название', 'orange');
     if (!price || price <= 0) return toast('Введите цену', 'orange');
-
+    if (price >= 4294967295) return toast('Цена не может быть выше 4 294 967 295!', 'red');
     creatingLot = true;
     const btn = event.target.closest('button');
     if (btn) btn.disabled = true;
@@ -980,6 +984,7 @@ async function updateMyBalance() {
     if (!currentUser) return;
 
     const balance = parseInt(document.getElementById('profile-balance').value);
+    if (balance >= 4294967295) return toast('Не может быть больше 4 294 967 295!', 'red');
     const r = await post('/userUpdateBalance', {userId: currentUser.id, balance});
 
     if (r === 'success') {

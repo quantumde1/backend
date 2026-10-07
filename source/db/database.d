@@ -37,6 +37,13 @@ private void createTables() {
             image_slot_0 INTEGER NOT NULL DEFAULT 16777215,
             image_slot_1 INTEGER NOT NULL DEFAULT 16777215,
             image_slot_2 INTEGER NOT NULL DEFAULT 16777215,
+            image_slot_3 INTEGER NOT NULL DEFAULT 16777215,
+            image_slot_4 INTEGER NOT NULL DEFAULT 16777215,
+            image_slot_5 INTEGER NOT NULL DEFAULT 16777215,
+            image_slot_6 INTEGER NOT NULL DEFAULT 16777215,
+            image_slot_7 INTEGER NOT NULL DEFAULT 16777215,
+            image_slot_8 INTEGER NOT NULL DEFAULT 16777215,
+            image_slot_9 INTEGER NOT NULL DEFAULT 16777215,
             FOREIGN KEY (participant_one) REFERENCES users(id),
             FOREIGN KEY (participant_two) REFERENCES users(id)
         )

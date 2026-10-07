@@ -100,7 +100,8 @@ void betInfo(HTTPServerRequest req, HTTPServerResponse res) {
     writeFormatted(res, v, fmt);
 }
 
-// отдаёт сырые байты картинки лота по её индексу в data/db/images.hpf
+import system.lzss;
+
 void imageInfo(HTTPServerRequest req, HTTPServerResponse res) {
     string idStr = req.query.get("id", "0");
     uint imageId = to!uint(idStr);
@@ -112,7 +113,6 @@ void imageInfo(HTTPServerRequest req, HTTPServerResponse res) {
         return;
     }
 
-    // MIME определяем по магическим байтам прямо здесь — БД для этого не нужна.
     res.headers["Content-Type"] = detectImageMime(data);
     res.writeBody(data);
 }

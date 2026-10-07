@@ -47,6 +47,8 @@ void loginUser(HTTPServerRequest req, HTTPServerResponse res) {
     }
 }
 
+import system.lzss;
+
 void uploadImage(HTTPServerRequest req, HTTPServerResponse res) {
     debugWriteln("uploading image");
     Json j = req.json;
@@ -81,11 +83,12 @@ void registerBet(HTTPServerRequest req, HTTPServerResponse res) {
         if (description.length > 128) description = description[0 .. 128];
     }
 
-    uint[3] imageIndexes = [NO_IMAGE, NO_IMAGE, NO_IMAGE];
+    uint[10] imageIndexes;
+    imageIndexes[] = NO_IMAGE;
     if ("images" in j) {
         auto imgs = j["images"];
-        for (int i = 0; i < 3; i++)
-            if (i < imgs.length) imageIndexes[i] = imgs[i].get!uint;
+        foreach (i; 0 .. imgs.length > 10 ? 10 : imgs.length)
+            imageIndexes[i] = imgs[i].get!uint;
     }
 
     User u = getUserById(participantOne);
@@ -120,6 +123,11 @@ void takePartInBet(HTTPServerRequest req, HTTPServerResponse res) {
         res.writeBody("error_no_such"); return;
     }
     Bet b = getBetById(betId);
+    if (b.status == true) {
+        debugWriteln("cannot change max bet");
+        res.writeBody("error_cannot_change_state");
+        return;
+    }
     User u = getUserById(userId);
 
     if (betPrice < b.price) { res.writeBody("error_price_lower_than_before"); return; }

@@ -3,9 +3,10 @@ module db.images;
 import d2sqlite3;
 import system.debugwriteln;
 import variables;
+import system.lzss;
 
 uint addImage(ubyte[] data) {
-    database.execute("INSERT INTO images (data) VALUES (?)", data);
+    database.execute("INSERT INTO images (data) VALUES (?)", compressLzss(data));
     uint newIndex = cast(uint)database.lastInsertRowid;
     debugWriteln("added image #", newIndex, " (", data.length, " bytes)");
     return newIndex;
@@ -15,7 +16,7 @@ ubyte[] getImage(uint index) {
     if (index == NO_IMAGE) return [];
     ubyte[] result;
     foreach (row; database.execute("SELECT data FROM images WHERE id = ?", cast(long)index)) {
-        result = cast(ubyte[])row[0].as!(ubyte[]);
+        result = decompressLzss(cast(ubyte[])row[0].as!(ubyte[]));
         break;
     }
     return result;
