@@ -5,16 +5,22 @@ import system.debugwriteln;
 import variables;
 import db.database;
 
+private User userFromRow(Row row) {
+    User u;
+    u.id = cast(uint)row[0].as!long;
+    u.nickname = row[1].as!string;
+    u.hashedPassword = row[2].as!string;
+    u.balance = cast(uint)row[3].as!long;
+    return u;
+}
+
 User getUserById(uint id) {
     User u;
     foreach (row; database.execute(
         "SELECT id, nickname, hashed_password, balance FROM users WHERE id = ?",
         cast(long)id))
     {
-        u.id = cast(uint)row[0].as!long;
-        u.nickname = row[1].as!string;
-        u.hashedPassword = row[2].as!string;
-        u.balance = cast(uint)row[3].as!long;
+        u = userFromRow(row);
         break;
     }
     if (u.id == 0) return u;
@@ -28,10 +34,7 @@ User getUserByNickname(string nickname) {
         "SELECT id, nickname, hashed_password, balance FROM users WHERE nickname = ?",
         nickname))
     {
-        u.id = cast(uint)row[0].as!long;
-        u.nickname = row[1].as!string;
-        u.hashedPassword = row[2].as!string;
-        u.balance = cast(uint)row[3].as!long;
+        u = userFromRow(row);
         break;
     }
     if (u.id == 0) return u;
@@ -39,11 +42,11 @@ User getUserByNickname(string nickname) {
     return u;
 }
 
-private void loadUserlots(ref User u) {
+void loadUserlots(ref User u) {
     uint[] lotIds;
     foreach (row; database.execute(
-        "SELECT lot_id FROM lot_participants WHERE user_id = ? ORDER BY lot_id",
-        cast(long)u.id))
+        "SELECT id FROM lots WHERE participant_one = ? OR participant_two = ? ORDER BY id",
+        cast(long)u.id, cast(long)u.id))
     {
         lotIds ~= cast(uint)row[0].as!long;
     }
@@ -58,6 +61,8 @@ bool userExists(uint id) {
 }
 
 uint createUser(string nickname, string hashedPassword, uint balance = 0) {
+    foreach (row; database.execute("SELECT 1 FROM users WHERE nickname = ? LIMIT 1", nickname))
+        return 0;
     database.execute(
         "INSERT INTO users (nickname, hashed_password, balance) VALUES (?, ?, ?)",
         nickname, hashedPassword, cast(long)balance);
@@ -69,20 +74,10 @@ void setUserBalance(uint userId, uint balance) {
                cast(long)balance, cast(long)userId);
 }
 
-void addUserTolot(uint userId, uint lotId) {
-    database.execute("INSERT OR IGNORE INTO lot_participants (user_id, lot_id) VALUES (?, ?)",
-               cast(long)userId, cast(long)lotId);
-}
-
-void removeUserFromlot(uint userId, uint lotId) {
-    database.execute("DELETE FROM lot_participants WHERE user_id = ? AND lot_id = ?",
-               cast(long)userId, cast(long)lotId);
-}
-
-bool userInlot(uint userId, uint lotId) {
+bool userInLot(uint userId, uint lotId) {
     foreach (row; database.execute(
-        "SELECT 1 FROM lot_participants WHERE user_id = ? AND lot_id = ? LIMIT 1",
-        cast(long)userId, cast(long)lotId))
+        "SELECT 1 FROM lots WHERE id = ? AND (participant_one = ? OR participant_two = ?) LIMIT 1",
+        cast(long)lotId, cast(long)userId, cast(long)userId))
         return true;
     return false;
 }

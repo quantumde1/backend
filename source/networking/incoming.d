@@ -10,6 +10,7 @@ import db.images;
 import std.datetime;
 import std.base64;
 import std.conv;
+
 void registerUser(HTTPServerRequest req, HTTPServerResponse res) {
     debugWriteln("registering user");
     Json j = req.json;
@@ -83,12 +84,12 @@ void registerlot(HTTPServerRequest req, HTTPServerResponse res) {
         if (description.length > 128) description = description[0 .. 128];
     }
 
-    uint[10] imageIndexes;
-    imageIndexes[] = NO_IMAGE;
-    if ("images" in j) {
-        auto imgs = j["images"];
-        foreach (i; 0 .. imgs.length > 10 ? 10 : imgs.length)
-            imageIndexes[i] = imgs[i].get!uint;
+    uint[] imageIndexes;
+    if ("images" in j && j["images"].type == Json.Type.array) {
+        foreach (img; j["images"]) {
+            uint idx = img.get!uint;
+            if (idx != NO_IMAGE) imageIndexes ~= idx;
+        }
     }
 
     User u = getUserById(participantOne);
@@ -96,7 +97,8 @@ void registerlot(HTTPServerRequest req, HTTPServerResponse res) {
     if (price > u.balance) { res.writeBody("error_price_high"); return; }
 
     uint newlotIndex = createlot(lotName, price, participantOne, description, imageIndexes);
-    debugWriteln("created Lot #", newlotIndex, " '", lotName, "' by user ", participantOne);
+    debugWriteln("created Lot #", newlotIndex, " '", lotName, "' by user ", participantOne,
+                 " with ", imageIndexes.length, " image(s)");
     res.statusCode = 200;
     res.writeBody("success");
 }
@@ -133,11 +135,10 @@ void takePartInlot(HTTPServerRequest req, HTTPServerResponse res) {
     if (lotPrice < b.price) { res.writeBody("error_price_lower_than_before"); return; }
     if (u.balance < b.price) { res.writeBody("error_price_high"); return; }
 
-    bool already = userInlot(userId, lotId);
+    bool already = userInLot(userId, lotId);
 
     setlotParticipantTwo(lotId, userId);
     setlotPrice(lotId, lotPrice);
-    if (!already) addUserTolot(userId, lotId);
 
     res.statusCode = 200;
     res.writeBody("success");
@@ -158,7 +159,6 @@ void untakePartInlot(HTTPServerRequest req, HTTPServerResponse res) {
     }
 
     setlotParticipantTwo(lotId, 0);
-    removeUserFromlot(userId, lotId);
     debugWriteln("removed participant!");
     res.statusCode = 200;
     res.writeBody("success");

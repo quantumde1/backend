@@ -4,17 +4,15 @@ import d2sqlite3;
 import system.debugwriteln;
 import variables;
 import db.database;
-import db.users;
 import std.datetime;
+import db.images;
 
 Lot getlotById(uint id) {
     Lot b;
     foreach (row; database.execute("
-    SELECT id, lot_name, price, participant_one, participant_two,
-           unix_timestamp, status, description,
-           image_slot_0, image_slot_1, image_slot_2, image_slot_3, image_slot_4,
-           image_slot_5, image_slot_6, image_slot_7, image_slot_8, image_slot_9
-    FROM lots WHERE id = ?", cast(long)id))
+        SELECT id, lot_name, price, participant_one, participant_two,
+               unix_timestamp, status, description
+        FROM lots WHERE id = ?", cast(long)id))
     {
         b.id             = cast(uint)row[0].as!long;
         b.lotName        = row[1].as!string;
@@ -24,8 +22,7 @@ Lot getlotById(uint id) {
         b.unixTimestamp  = cast(uint)row[5].as!long;
         b.status         = row[6].as!long != 0;
         b.description    = row[7].as!string;
-        foreach (i; 0 .. 10)
-            b.imageIndexes[i] = cast(uint)row[8 + i].as!long;
+        b.imageIndexes   = getLotImages(b.id);
         break;
     }
     return b;
@@ -38,23 +35,18 @@ bool lotExists(uint id) {
 }
 
 uint createlot(string lotName, uint price, uint participantOne,
-               string description, uint[10] imageIndexes)
+               string description, uint[] imageIndexes)
 {
     uint ts = cast(uint)Clock.currTime().toUnixTime();
+    uint lotId;
     database.execute("
         INSERT INTO lots
             (lot_name, price, participant_one, participant_two,
-             unix_timestamp, status, description,
-             image_slot_0, image_slot_1, image_slot_2, image_slot_3, image_slot_4,
-             image_slot_5, image_slot_6, image_slot_7, image_slot_8, image_slot_9)
-        VALUES (?, ?, ?, NULL, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        lotName, cast(long)price, cast(long)participantOne, cast(long)ts, description,
-        cast(long)imageIndexes[0], cast(long)imageIndexes[1], cast(long)imageIndexes[2],
-        cast(long)imageIndexes[3], cast(long)imageIndexes[4], cast(long)imageIndexes[5],
-        cast(long)imageIndexes[6], cast(long)imageIndexes[7], cast(long)imageIndexes[8],
-        cast(long)imageIndexes[9]);
-    uint lotId = cast(uint)database.lastInsertRowid;
-    addUserTolot(participantOne, lotId);
+                unix_timestamp, status, description)
+        VALUES (?, ?, ?, NULL, ?, 0, ?)",
+        lotName, cast(long)price, cast(long)participantOne, cast(long)ts, description);
+    lotId = cast(uint)database.lastInsertRowid;
+    setLotImages(lotId, imageIndexes);
     return lotId;
 }
 

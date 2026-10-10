@@ -38,7 +38,10 @@ Json lotToJson(uint lotId) {
     User p2 = getUserById(b.participantTwo);
 
     Json[] imagesArr;
-    foreach (idx; b.imageIndexes) imagesArr ~= Json(idx);
+    foreach (idx; b.imageIndexes) {
+        debugWriteln(imagesArr.length);
+        imagesArr ~= Json(idx);
+    }
 
     return Json([
         "id":                  Json(b.id),

@@ -14,7 +14,7 @@ struct Lot {
     uint unixTimestamp;
     bool status;
     string description;
-    uint[10] imageIndexes;
+    uint[] imageIndexes;
 }
 
 struct User {
