@@ -18,7 +18,7 @@ User getUserById(uint id) {
         break;
     }
     if (u.id == 0) return u;
-    loadUserBets(u);
+    loadUserlots(u);
     return u;
 }
 
@@ -35,20 +35,20 @@ User getUserByNickname(string nickname) {
         break;
     }
     if (u.id == 0) return u;
-    loadUserBets(u);
+    loadUserlots(u);
     return u;
 }
 
-private void loadUserBets(ref User u) {
-    uint[] betIds;
+private void loadUserlots(ref User u) {
+    uint[] lotIds;
     foreach (row; database.execute(
-        "SELECT bet_id FROM bet_participants WHERE user_id = ? ORDER BY bet_id",
+        "SELECT lot_id FROM lot_participants WHERE user_id = ? ORDER BY lot_id",
         cast(long)u.id))
     {
-        betIds ~= cast(uint)row[0].as!long;
+        lotIds ~= cast(uint)row[0].as!long;
     }
-    u.betsIndexes = betIds;
-    u.betsDone = cast(uint)betIds.length;
+    u.lotsIndexes = lotIds;
+    u.lotsDone = cast(uint)lotIds.length;
 }
 
 bool userExists(uint id) {
@@ -69,20 +69,20 @@ void setUserBalance(uint userId, uint balance) {
                cast(long)balance, cast(long)userId);
 }
 
-void addUserToBet(uint userId, uint betId) {
-    database.execute("INSERT OR IGNORE INTO bet_participants (user_id, bet_id) VALUES (?, ?)",
-               cast(long)userId, cast(long)betId);
+void addUserTolot(uint userId, uint lotId) {
+    database.execute("INSERT OR IGNORE INTO lot_participants (user_id, lot_id) VALUES (?, ?)",
+               cast(long)userId, cast(long)lotId);
 }
 
-void removeUserFromBet(uint userId, uint betId) {
-    database.execute("DELETE FROM bet_participants WHERE user_id = ? AND bet_id = ?",
-               cast(long)userId, cast(long)betId);
+void removeUserFromlot(uint userId, uint lotId) {
+    database.execute("DELETE FROM lot_participants WHERE user_id = ? AND lot_id = ?",
+               cast(long)userId, cast(long)lotId);
 }
 
-bool userInBet(uint userId, uint betId) {
+bool userInlot(uint userId, uint lotId) {
     foreach (row; database.execute(
-        "SELECT 1 FROM bet_participants WHERE user_id = ? AND bet_id = ? LIMIT 1",
-        cast(long)userId, cast(long)betId))
+        "SELECT 1 FROM lot_participants WHERE user_id = ? AND lot_id = ? LIMIT 1",
+        cast(long)userId, cast(long)lotId))
         return true;
     return false;
 }

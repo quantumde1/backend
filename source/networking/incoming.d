@@ -5,7 +5,7 @@ import variables;
 import vibe.vibe;
 import vibe.data.json;
 import db.users;
-import db.bets;
+import db.lots;
 import db.images;
 import std.datetime;
 import std.base64;
@@ -70,10 +70,10 @@ void uploadImage(HTTPServerRequest req, HTTPServerResponse res) {
     res.writeBody(newIndex.to!string);
 }
 
-void registerBet(HTTPServerRequest req, HTTPServerResponse res) {
-    debugWriteln("creating bet");
+void registerlot(HTTPServerRequest req, HTTPServerResponse res) {
+    debugWriteln("creating Lot");
     Json j = req.json;
-    string betName     = j["betname"].get!string;
+    string lotName     = j["lotname"].get!string;
     uint price         = j["price"].get!uint;
     uint participantOne = j["participantOne"].get!uint;
 
@@ -95,8 +95,8 @@ void registerBet(HTTPServerRequest req, HTTPServerResponse res) {
     if (u.id == 0) { res.writeBody("error_no_user"); return; }
     if (price > u.balance) { res.writeBody("error_price_high"); return; }
 
-    uint newBetIndex = createBet(betName, price, participantOne, description, imageIndexes);
-    debugWriteln("created bet #", newBetIndex, " '", betName, "' by user ", participantOne);
+    uint newlotIndex = createlot(lotName, price, participantOne, description, imageIndexes);
+    debugWriteln("created Lot #", newlotIndex, " '", lotName, "' by user ", participantOne);
     res.statusCode = 200;
     res.writeBody("success");
 }
@@ -113,43 +113,43 @@ void updateUserBalance(HTTPServerRequest req, HTTPServerResponse res) {
     res.writeBody("success");
 }
 
-void takePartInBet(HTTPServerRequest req, HTTPServerResponse res) {
+void takePartInlot(HTTPServerRequest req, HTTPServerResponse res) {
     Json j = req.json;
     uint userId   = j["userId"].get!uint;
-    uint betId    = j["betId"].get!uint;
-    uint betPrice = j["betPrice"].get!uint;
+    uint lotId    = j["lotId"].get!uint;
+    uint lotPrice = j["lotPrice"].get!uint;
 
-    if (!userExists(userId) || !betExists(betId)) {
+    if (!userExists(userId) || !lotExists(lotId)) {
         res.writeBody("error_no_such"); return;
     }
-    Bet b = getBetById(betId);
+    Lot b = getlotById(lotId);
     if (b.status == true) {
-        debugWriteln("cannot change max bet");
+        debugWriteln("cannot change max Lot");
         res.writeBody("error_cannot_change_state");
         return;
     }
     User u = getUserById(userId);
 
-    if (betPrice < b.price) { res.writeBody("error_price_lower_than_before"); return; }
+    if (lotPrice < b.price) { res.writeBody("error_price_lower_than_before"); return; }
     if (u.balance < b.price) { res.writeBody("error_price_high"); return; }
 
-    bool already = userInBet(userId, betId);
+    bool already = userInlot(userId, lotId);
 
-    setBetParticipantTwo(betId, userId);
-    setBetPrice(betId, betPrice);
-    if (!already) addUserToBet(userId, betId);
+    setlotParticipantTwo(lotId, userId);
+    setlotPrice(lotId, lotPrice);
+    if (!already) addUserTolot(userId, lotId);
 
     res.statusCode = 200;
     res.writeBody("success");
 }
 
-void untakePartInBet(HTTPServerRequest req, HTTPServerResponse res) {
+void untakePartInlot(HTTPServerRequest req, HTTPServerResponse res) {
     Json j = req.json;
     uint userId = j["userId"].get!uint;
-    uint betId  = j["betId"].get!uint;
+    uint lotId  = j["lotId"].get!uint;
 
-    Bet b = getBetById(betId);
-    if (b.id == 0) { res.writeBody("error_no_bet"); return; }
+    Lot b = getlotById(lotId);
+    if (b.id == 0) { res.writeBody("error_no_lot"); return; }
 
     if (b.status == true || b.participantOne == userId) {
         debugWriteln("cannot untake");
@@ -157,45 +157,45 @@ void untakePartInBet(HTTPServerRequest req, HTTPServerResponse res) {
         return;
     }
 
-    setBetParticipantTwo(betId, 0);
-    removeUserFromBet(userId, betId);
+    setlotParticipantTwo(lotId, 0);
+    removeUserFromlot(userId, lotId);
     debugWriteln("removed participant!");
     res.statusCode = 200;
     res.writeBody("success");
 }
 
-void removeBet(HTTPServerRequest req, HTTPServerResponse res) {
+void removelot(HTTPServerRequest req, HTTPServerResponse res) {
     Json j = req.json;
     uint userId = j["userId"].get!uint;
-    uint betId  = j["betId"].get!uint;
+    uint lotId  = j["lotId"].get!uint;
 
-    Bet b = getBetById(betId);
-    if (b.id == 0) { res.writeBody("error_no_bet"); return; }
+    Lot b = getlotById(lotId);
+    if (b.id == 0) { res.writeBody("error_no_lot"); return; }
     if (userId != b.participantOne) {
         res.writeBody("error_not_creator");
         return;
     }
 
-    deleteBet(betId);
+    deletelot(lotId);
     res.statusCode = 200;
     res.writeBody("success");
 }
 
-void stopBetAuction(HTTPServerRequest req, HTTPServerResponse res) {
+void stoplotAuction(HTTPServerRequest req, HTTPServerResponse res) {
     Json j = req.json;
-    uint betId = j["betId"].get!uint;
-    if (!betExists(betId)) { res.writeBody("error_no_bet"); return; }
-    setBetStatus(betId, true);
+    uint lotId = j["lotId"].get!uint;
+    if (!lotExists(lotId)) { res.writeBody("error_no_lot"); return; }
+    setlotStatus(lotId, true);
     res.statusCode = 200;
     res.writeBody("success");
 }
 
-void setBetResult(HTTPServerRequest req, HTTPServerResponse res) {
+void setlotResult(HTTPServerRequest req, HTTPServerResponse res) {
     Json j = req.json;
-    uint betIndex = j["betId"].get!uint;
+    uint lotIndex = j["lotId"].get!uint;
 
-    Bet b = getBetById(betIndex);
-    if (b.id == 0) { res.writeBody("error_no_bet"); return; }
+    Lot b = getlotById(lotIndex);
+    if (b.id == 0) { res.writeBody("error_no_lot"); return; }
     if (b.participantTwo == 0) { res.writeBody("error_no_participant_two"); return; }
     if (b.status == true) { res.writeBody("error_already_settled"); return; }
 
@@ -204,7 +204,7 @@ void setBetResult(HTTPServerRequest req, HTTPServerResponse res) {
 
     setUserBalance(p1.id, p1.balance + b.price);
     setUserBalance(p2.id, p2.balance - b.price);
-    setBetStatus(betIndex, true);
+    setlotStatus(lotIndex, true);
 
     res.statusCode = 200;
     res.writeBody("success");

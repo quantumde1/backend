@@ -6,8 +6,7 @@ enum N = 4096;
 enum F = 18;
 enum THRESHOLD = 2;
 
-int decompressLZSS(ubyte[] dst, ubyte[] src) 
-{
+int decompressLZSS(ubyte[] dst, ubyte[] src) {
     ubyte[N + F - 1] text_buf;
     ubyte* dst_ptr = dst.ptr;
     ubyte* src_ptr = src.ptr;

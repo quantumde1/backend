@@ -2,109 +2,90 @@ module networking.outcoming;
 
 import system.debugwriteln;
 import db.users;
-import db.bets;
+import db.lots;
 import db.images;
 import variables;
 import vibe.vibe;
+import vibe.data.json;
 import std.conv;
-import networking.format;
-import std.typecons;
-
-Val userToVal(uint userId) {
-    User u = getUserById(userId);
-    Tuple!(string, Val)[] obj;
-
-    obj ~= tuple("id",        Val.uint_(u.id));
-    obj ~= tuple("name",      Val.str(u.nickname));
-    obj ~= tuple("balance",   Val.uint_(u.balance));
-    obj ~= tuple("betsCount", Val.uint_(u.betsDone));
-
-    Val[] betsArr, betsNamesArr;
-    foreach (idx; u.betsIndexes) {
-        betsArr ~= Val.uint_(idx);
-        Bet b = getBetById(idx);
-        betsNamesArr ~= Val.str(b.id != 0 ? b.betName : "<missing>");
-    }
-    obj ~= tuple("bets",      Val.arr_(betsArr));
-    obj ~= tuple("betsNames", Val.arr_(betsNamesArr));
-
-    return Val.obj_(obj);
-}
-
-Val betToVal(uint betId) {
-    Bet b = getBetById(betId);
-    Tuple!(string, Val)[] obj;
-
-    obj ~= tuple("id",                  Val.uint_(b.id));
-    obj ~= tuple("name",                Val.str(b.betName));
-    obj ~= tuple("price",               Val.uint_(b.price));
-    obj ~= tuple("participantOneIndex", Val.uint_(b.participantOne));
-    obj ~= tuple("participantTwoIndex", Val.uint_(b.participantTwo));
-    obj ~= tuple("unixTimestamp",       Val.uint_(b.unixTimestamp));
-    obj ~= tuple("status",              Val.bool_(b.status));
-    obj ~= tuple("description",         Val.str(b.description));
-
-    User p1 = getUserById(b.participantOne);
-    User p2 = getUserById(b.participantTwo);
-    obj ~= tuple("participantOneName", Val.str(p1.nickname));
-    obj ~= tuple("participantTwoName", Val.str(p2.nickname));
-
-    Val[] imagesArr;
-    foreach (idx; b.imageIndexes) imagesArr ~= Val.uint_(idx);
-    obj ~= tuple("images", Val.arr_(imagesArr));
-
-    return Val.obj_(obj);
-}
-
-void userInfo(HTTPServerRequest req, HTTPServerResponse res) {
-    string idStr = req.query.get("id", "0");
-    uint userId = to!uint(idStr);
-
-    if (!userExists(userId)) {
-        res.statusCode = 404;
-        auto fmt = parseFormat(req);
-        if (fmt == OutputFormat.Json) {
-            res.headers["Content-Type"] = "application/json";
-            res.writeBody(`{"error":"no_user"}`);
-        } else {
-            res.headers["Content-Type"] = "text/x-lua";
-            res.writeBody(`{ error = "no_user" }`);
-        }
-        return;
-    }
-
-    auto fmt = parseFormat(req);
-    auto v = userToVal(userId);
-    writeFormatted(res, v, fmt);
-}
-
-void betInfo(HTTPServerRequest req, HTTPServerResponse res) {
-    string idStr = req.query.get("id", "0");
-    uint betId = to!uint(idStr);
-
-    if (!betExists(betId)) {
-        res.statusCode = 404;
-        auto fmt = parseFormat(req);
-        if (fmt == OutputFormat.Json) {
-            res.headers["Content-Type"] = "application/json";
-            res.writeBody(`{"error":"no_bet"}`);
-        } else {
-            res.headers["Content-Type"] = "text/x-lua";
-            res.writeBody(`{ error = "no_bet" }`);
-        }
-        return;
-    }
-
-    auto fmt = parseFormat(req);
-    auto v = betToVal(betId);
-    writeFormatted(res, v, fmt);
-}
 
 import system.lzss;
 
+Json userToJson(uint userId) {
+    User u = getUserById(userId);
+
+    Json[] lotsArr, lotsNamesArr;
+    foreach (idx; u.lotsIndexes) {
+        lotsArr ~= Json(idx);
+        Lot b = getlotById(idx);
+        lotsNamesArr ~= Json(b.id != 0 ? b.lotName : "<missing>");
+    }
+
+    return Json([
+        "id":        Json(u.id),
+        "name":      Json(u.nickname),
+        "balance":   Json(u.balance),
+        "lotsCount": Json(u.lotsDone),
+        "lots":      Json(lotsArr),
+        "lotsNames": Json(lotsNamesArr),
+    ]);
+}
+
+Json lotToJson(uint lotId) {
+    Lot b = getlotById(lotId);
+
+    User p1 = getUserById(b.participantOne);
+    User p2 = getUserById(b.participantTwo);
+
+    Json[] imagesArr;
+    foreach (idx; b.imageIndexes) imagesArr ~= Json(idx);
+
+    return Json([
+        "id":                  Json(b.id),
+        "name":                Json(b.lotName),
+        "price":               Json(b.price),
+        "participantOneIndex": Json(b.participantOne),
+        "participantTwoIndex": Json(b.participantTwo),
+        "unixTimestamp":       Json(b.unixTimestamp),
+        "status":              Json(b.status),
+        "description":         Json(b.description),
+        "participantOneName":  Json(p1.nickname),
+        "participantTwoName":  Json(p2.nickname),
+        "images":              Json(imagesArr),
+    ]);
+}
+
+void writeJson(HTTPServerResponse res, Json j) {
+    res.headers["Content-Type"] = "application/json; charset=utf-8";
+    res.writeBody(j.toString());
+}
+
+void userInfo(HTTPServerRequest req, HTTPServerResponse res) {
+    uint userId = to!uint(req.query.get("id", "0"));
+
+    if (!userExists(userId)) {
+        res.statusCode = 404;
+        writeJson(res, Json(["error": Json("no_user")]));
+        return;
+    }
+
+    writeJson(res, userToJson(userId));
+}
+
+void lotInfo(HTTPServerRequest req, HTTPServerResponse res) {
+    uint lotId = to!uint(req.query.get("id", "0"));
+
+    if (!lotExists(lotId)) {
+        res.statusCode = 404;
+        writeJson(res, Json(["error": Json("no_lot")]));
+        return;
+    }
+
+    writeJson(res, lotToJson(lotId));
+}
+
 void imageInfo(HTTPServerRequest req, HTTPServerResponse res) {
-    string idStr = req.query.get("id", "0");
-    uint imageId = to!uint(idStr);
+    uint imageId = to!uint(req.query.get("id", "0"));
 
     ubyte[] data = getImage(imageId);
     if (data.length == 0) {

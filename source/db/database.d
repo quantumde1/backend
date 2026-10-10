@@ -6,7 +6,7 @@ import std.path;
 import variables;
 
 void initDatabase(string dataPath) {
-    string dbPath = buildPath(dataPath, "data", "db", "lottery.sqlite");
+    string dbPath = buildPath(dataPath, "db", "lottery.sqlite");
     debugWriteln("Opening SQLite database at ", dbPath);
     database = Database(dbPath);
     database.execute("PRAGMA foreign_keys = ON");
@@ -14,7 +14,7 @@ void initDatabase(string dataPath) {
     createTables();
 }
 
-private void createTables() {
+void createTables() {
     database.execute("
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,9 +25,9 @@ private void createTables() {
     ");
 
     database.execute("
-        CREATE TABLE IF NOT EXISTS bets (
+        CREATE TABLE IF NOT EXISTS lots (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            bet_name TEXT NOT NULL,
+            lot_name TEXT NOT NULL,
             price INTEGER NOT NULL,
             participant_one INTEGER NOT NULL,
             participant_two INTEGER,
@@ -50,12 +50,12 @@ private void createTables() {
     ");
 
     database.execute("
-        CREATE TABLE IF NOT EXISTS bet_participants (
+        CREATE TABLE IF NOT EXISTS lot_participants (
             user_id INTEGER NOT NULL,
-            bet_id INTEGER NOT NULL,
-            PRIMARY KEY (user_id, bet_id),
+            lot_id INTEGER NOT NULL,
+            PRIMARY KEY (user_id, lot_id),
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY (bet_id) REFERENCES bets(id) ON DELETE CASCADE
+            FOREIGN KEY (lot_id) REFERENCES lots(id) ON DELETE CASCADE
         )
     ");
 

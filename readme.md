@@ -19,10 +19,10 @@
 ```sql
 users(id, nickname UNIQUE, hashed_password, balance)
 images(id, data BLOB, mime)
-bets(id, bet_name, price, participant_one, participant_two NULL,
+lots(id, lot_name, price, participant_one, participant_two NULL,
      unix_timestamp, status, description)
-bet_images(bet_id, slot, image_id)              -- до 3 картинок на лот
-bet_participants(user_id, bet_id)               -- индекс «пользователь → его ставки»
+lot_images(lot_id, slot, image_id)              -- до 3 картинок на лот
+lot_participants(user_id, lot_id)               -- индекс «пользователь → его ставки»
 ```
 
 Соответствие D-структур и таблиц:
@@ -33,31 +33,31 @@ struct User {
     string nickname;      // users.nickname
     string hashedPassword;// users.hashed_password
     uint balance;         // users.balance
-    uint betsDone;        // COUNT(bet_participants)
-    uint[] betsIndexes;   // bet_participants.bet_id
+    uint lotsDone;        // COUNT(lot_participants)
+    uint[] lotsIndexes;   // lot_participants.lot_id
 }
 
-struct Bet {
-    uint id;              // bets.id
-    string betName;       // bets.bet_name
-    uint price;           // bets.price
-    uint participantOne;  // bets.participant_one (FK → users.id)
-    uint participantTwo;  // bets.participant_two (NULL в БД ↔ 0 в D)
-    uint unixTimestamp;   // bets.unix_timestamp
-    bool status;          // bets.status
-    string description;   // bets.description (до 128 ASCII)
-    uint[3] imageIndexes; // bet_images (slot 0..2, NO_IMAGE = строки нет)
+struct Lot {
+    uint id;              // lots.id
+    string lotName;       // lots.lot_name
+    uint price;           // lots.price
+    uint participantOne;  // lots.participant_one (FK → users.id)
+    uint participantTwo;  // lots.participant_two (NULL в БД ↔ 0 в D)
+    uint unixTimestamp;   // lots.unix_timestamp
+    bool status;          // lots.status
+    string description;   // lots.description (до 128 ASCII)
+    uint[3] imageIndexes; // lot_images (slot 0..2, NO_IMAGE = строки нет)
 }
 ```
 
-Магическое значение `NO_IMAGE = 0xFFFFFF` остаётся сентинелом **на уровне D-структуры**: если в слоте картинки нет, соответствующей строки в `bet_images` просто не создаётся. То же самое с `participantTwo == 0` — в БД это `NULL`.
+Магическое значение `NO_IMAGE = 0xFFFFFF` остаётся сентинелом **на уровне D-структуры**: если в слоте картинки нет, соответствующей строки в `lot_images` просто не создаётся. То же самое с `participantTwo == 0` — в БД это `NULL`.
 
 ### Картинки лотов
 
 Картинки хранятся в таблице `images` как BLOB рядом с MIME-типом, определяемым по «магическим байтам» при загрузке.
 
 - **Индекс картинки** = `images.id` (SQLite `AUTOINCREMENT`).
-- В `Bet` под картинки отведено **3 слота** (`uint[3] imageIndexes`, до 3 строк в `bet_images`).
+- В `Lot` под картинки отведено **3 слота** (`uint[3] imageIndexes`, до 3 строк в `lot_images`).
 - Загрузка: `POST /imageUpload` с JSON `{ "data": "<base64>" }`. Ответ — индекс в виде строки.
 - Отдача: `GET /imageInfo?id=<index>`. MIME берётся из `images.mime`, отдаётся сырой поток.
 
@@ -73,7 +73,7 @@ struct Bet {
 
 ### Структура кода
 
-Процедурный подход: обработчики в `networking/incoming.d` и `networking/outcoming.d`, работа с БД — в модулях `db/users.d`, `db/bets.d`, `db/images.d`, единое соединение и схема — в `db/database.d`. Данные больше не кэшируются в памяти — каждый запрос читает нужные строки из SQLite.
+Процедурный подход: обработчики в `networking/incoming.d` и `networking/outcoming.d`, работа с БД — в модулях `db/users.d`, `db/lots.d`, `db/images.d`, единое соединение и схема — в `db/database.d`. Данные больше не кэшируются в памяти — каждый запрос читает нужные строки из SQLite.
 
 ## Роли
 
@@ -111,7 +111,7 @@ struct Bet {
 3. Заполняет поля: название, цена.
 4. При необходимости прикрепляет до трёх картинок (загружаются через `POST /imageUpload`, в лот попадают их индексы).
 5. Отправляет форму через кнопку «Выставить».
-6. Система создаёт запись в `bets`, при необходимости — строки в `bet_images`, и запись в `bet_participants` для продавца.
+6. Система создаёт запись в `lots`, при необходимости — строки в `lot_images`, и запись в `lot_participants` для продавца.
 7. Товар отображается в списке «Лоты», т.е общий список товаров на продаже.
 
 ### Оформление заказа покупателем
@@ -126,8 +126,8 @@ struct Bet {
 4. Подтверждает повышение цены.
 5. Система:
     - Подтверждает, что ставка пользователя выше прошлой;
-    - Ставит пользователя как лидера (`bets.participant_two`);
-    - Добавляет строку в `bet_participants`, если её ещё нет;
+    - Ставит пользователя как лидера (`lots.participant_two`);
+    - Добавляет строку в `lot_participants`, если её ещё нет;
     - Сохраняет всё транзакционно и отдаёт обновлённые данные клиенту.
 6. Покупатель видит, что торги продолжаются, и теперь продавец может их остановить и продать товар ему.
 
@@ -137,7 +137,7 @@ struct Bet {
 
 **Сценарий**:
 
-1. Клиент получает карточку лота (`GET /betInfo?id=N`), в поле `images` приходит массив из трёх индексов.
+1. Клиент получает карточку лота (`GET /lotInfo?id=N`), в поле `images` приходит массив из трёх индексов.
 2. Для каждого индекса, не равного `0xFFFFFF`, клиент запрашивает `GET /imageInfo?id=<index>`.
 3. Сервер отдаёт сырые байты с корректным `Content-Type` (`image/png`, `image/jpeg`, `image/gif`, `image/webp`).
 4. Если индекс указывает на несуществующую картинку — сервер возвращает `404 not found`.
@@ -194,7 +194,7 @@ struct Bet {
 Система должна назначать сделавшего ставку покупателя текущим лидером лота (`participantTwo`).
 
 #### FR-LOT-09
-Система должна добавлять запись в `bet_participants` для покупателя, если её там ещё нет.
+Система должна добавлять запись в `lot_participants` для покупателя, если её там ещё нет.
 
 #### FR-LOT-10
 Система должна позволять покупателю отозвать свою ставку, если торги не закрыты и он не является продавцом.
@@ -232,7 +232,7 @@ struct Bet {
 Система должна возвращать `404 not found`, если запрошен несуществующий индекс картинки.
 
 #### FR-IMG-08
-Система должна поддерживать не более трёх картинок на один лот (`Bet.imageIndexes[3]`, до 3 строк в `bet_images`).
+Система должна поддерживать не более трёх картинок на один лот (`Lot.imageIndexes[3]`, до 3 строк в `lot_images`).
 
 #### FR-IMG-09
 Система должна сохранять картинки в таблицу `images` **сразу** при загрузке; отдельный `/flush` для этого не требуется.
@@ -275,7 +275,7 @@ struct Bet {
 Система должна возвращать `error_no_user`, если запрошен несуществующий пользователь.
 
 #### FR-USER-05
-Система должна возвращать `error_no_bet`, если запрошен несуществующий лот.
+Система должна возвращать `error_no_lot`, если запрошен несуществующий лот.
 
 ### Формат вывода
 
@@ -323,7 +323,7 @@ struct Bet {
 ### Работа с данными
 
 #### FR-DB-01
-Система должна создавать схему SQLite (таблицы `users`, `bets`, `images`, `bet_images`, `bet_participants`) при первом старте, если её ещё нет.
+Система должна создавать схему SQLite (таблицы `users`, `lots`, `images`, `lot_images`, `lot_participants`) при первом старте, если её ещё нет.
 
 #### FR-DB-02
 Система должна писать изменения в SQLite **непосредственно в момент операции**, без отдельного шага сохранения.
@@ -429,11 +429,11 @@ dub build --build=release
 ./backend [папка_где_есть_подпапка_data c базой данных и папкой assets с index.html] [локальный адрес] [порт]
 ```
 
-При первом старте в `data/db/lottery.sqlite` автоматически создаётся схема. Если нужны начальные данные — залей их через API (`/userRegister`, `/betRegister`, `/imageUpload`).
+При первом старте в `data/db/lottery.sqlite` автоматически создаётся схема. Если нужны начальные данные — залей их через API (`/userRegister`, `/lotRegister`, `/imageUpload`).
 
 ## Как создать базу данных
 
-Ничего создавать руками не нужно: файл `data/db/lottery.sqlite` и все таблицы появляются при первом запуске сервера. Старые python-скрипты для HPF (`utils/bet_gen.py`, `utils/user_gen.py`) оставлены только как историческая справка и в новом пайплайне не используются.
+Ничего создавать руками не нужно: файл `data/db/lottery.sqlite` и все таблицы появляются при первом запуске сервера. Старые python-скрипты для HPF (`utils/lot_gen.py`, `utils/user_gen.py`) оставлены только как историческая справка и в новом пайплайне не используются.
 
 ## Как получить доступ к фронтенду
 
@@ -456,26 +456,26 @@ http://[указанный адрес]:[port]/ — он там и будет, в
 
 - **users** — `id` (PK), `nickname` (UNIQUE), `hashed_password`, `balance`.
 - **images** — `id` (PK), `data` (BLOB), `mime`.
-- **bets** — `id` (PK), `bet_name`, `price`, `participant_one` (FK → users), `participant_two` (FK → users, `NULL` = нет), `unix_timestamp`, `status`, `description`.
-- **bet_images** — `(bet_id, slot)` (PK, FK → bets), `image_id` (FK → images). До 3 строк на лот, `slot ∈ {0, 1, 2}`.
-- **bet_participants** — `(user_id, bet_id)` (PK, FK → users, bets). Многие-ко-многим между пользователями и ставками.
+- **lots** — `id` (PK), `lot_name`, `price`, `participant_one` (FK → users), `participant_two` (FK → users, `NULL` = нет), `unix_timestamp`, `status`, `description`.
+- **lot_images** — `(lot_id, slot)` (PK, FK → lots), `image_id` (FK → images). До 3 строк на лот, `slot ∈ {0, 1, 2}`.
+- **lot_participants** — `(user_id, lot_id)` (PK, FK → users, lots). Многие-ко-многим между пользователями и ставками.
 
 Связи:
 
 | Связь | Кардинальность | Смысл |
 |---|---|---|
-| `users \|\|--o{ bets` (`participant_one`) | 1 : N | у каждого лота ровно один создатель |
-| `users \|o--o{ bets` (`participant_two`) | 0..1 : N | второй участник может отсутствовать (`NULL`) |
-| `users \|\|--o{ bet_participants` | 1 : N | список ставок пользователя |
-| `bets \|\|--o{ bet_participants` | 1 : N | участники лота |
-| `bets \|\|--o{ bet_images` | 1 : N | до 3 картинок на лот |
-| `images \|\|--o{ bet_images` | 1 : N | одна картинка может быть в нескольких лотах |
+| `users \|\|--o{ lots` (`participant_one`) | 1 : N | у каждого лота ровно один создатель |
+| `users \|o--o{ lots` (`participant_two`) | 0..1 : N | второй участник может отсутствовать (`NULL`) |
+| `users \|\|--o{ lot_participants` | 1 : N | список ставок пользователя |
+| `lots \|\|--o{ lot_participants` | 1 : N | участники лота |
+| `lots \|\|--o{ lot_images` | 1 : N | до 3 картинок на лот |
+| `images \|\|--o{ lot_images` | 1 : N | одна картинка может быть в нескольких лотах |
 
 ### Чего на диаграмме нет
 
-- **Sentinel-значения на уровне D**: `NO_IMAGE = 0xFFFFFF` (нет строки в `bet_images`) и `participantTwo = 0` (в БД — `NULL`).
-- **`betsState[]`** из старой RAM-модели — теперь роль «торги закрыты» играет колонка `bets.status`.
-- **Денормализации** старого кода (`User.betsDone` дублировал `length(betsIndexes)`) — `betsDone` теперь вычисляется запросом `COUNT(bet_participants)`.
+- **Sentinel-значения на уровне D**: `NO_IMAGE = 0xFFFFFF` (нет строки в `lot_images`) и `participantTwo = 0` (в БД — `NULL`).
+- **`lotsState[]`** из старой RAM-модели — теперь роль «торги закрыты» играет колонка `lots.status`.
+- **Денормализации** старого кода (`User.lotsDone` дублировал `length(lotsIndexes)`) — `lotsDone` теперь вычисляется запросом `COUNT(lot_participants)`.
 
 ### Как читать обозначения
 

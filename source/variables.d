@@ -5,9 +5,9 @@ import d2sqlite3;
 
 enum uint NO_IMAGE = 0xFFFFFF;
 
-struct Bet {
+struct Lot {
     uint id;
-    string betName;
+    string lotName;
     uint price;
     uint participantOne;
     uint participantTwo;
@@ -22,8 +22,8 @@ struct User {
     string nickname;
     string hashedPassword;
     uint balance;
-    uint betsDone;
-    uint[] betsIndexes;
+    uint lotsDone;
+    uint[] lotsIndexes;
 }
 
 struct SystemSettings {
@@ -33,6 +33,5 @@ struct SystemSettings {
 
 SystemSettings systemSettings;
 string pathToData;
-
 
 Database database;
